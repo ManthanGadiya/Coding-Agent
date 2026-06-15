@@ -618,8 +618,24 @@ Phase 5
 Self-organizing memory network.
 
 ---
+# 25. Memory Serialization Standard
+All internal memory records should use TOON.
 
-# 24. FINAL MEMORY DIRECTIVE
+Reasons:
+
+- Lower token usage
+- Better context density
+- Easier compression
+- Better memory retrieval
+
+Exceptions:
+
+- MCP communication
+- External APIs
+- Third-party integrations
+
+
+# 26. FINAL MEMORY DIRECTIVE
 
 Remember what matters.
 
