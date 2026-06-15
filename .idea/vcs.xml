@@ -2,10 +2,5 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/temp_agent_browser" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/temp_skills_matt" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/temp_skills_vercel" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/temp_superpowers" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/temp_websearch_skill" vcs="Git" />
   </component>
 </project>
