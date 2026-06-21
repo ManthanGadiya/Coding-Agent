@@ -14,7 +14,7 @@ export default function Projects() {
     <div className="space-y-6 animate-in">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
-        <button className="px-3 py-1.5 bg-accent text-black rounded-lg text-sm font-medium hover:bg-accent-dim transition-colors">+ New</button>
+        <button type="button" className="px-3 py-1.5 bg-accent text-black rounded-lg text-sm font-medium hover:bg-accent-dim transition-colors">+ New</button>
       </div>
       <div className="grid gap-3">
         {projects.length === 0 && <p className="text-muted text-sm">No projects yet.</p>}

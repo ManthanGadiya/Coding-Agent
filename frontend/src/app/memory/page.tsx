@@ -12,7 +12,7 @@ export default function Memory() {
       <h1 className="text-2xl font-bold tracking-tight">Memory</h1>
       <div className="flex gap-2 mb-2">
         {["all", "preference", "architecture", "lesson", "bug", "decision"].map((c) => (
-          <button key={c} className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
+          <button key={c} type="button" className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
             c === "all" ? "bg-accent text-black" : "bg-card border border-border text-muted hover:text-foreground"
           }`}>{c}</button>
         ))}

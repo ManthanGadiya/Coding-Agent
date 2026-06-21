@@ -39,9 +39,9 @@ export default function WorkflowsPage() {
       </div>
 
       <div className="flex gap-2 border-b border-border pb-2 animate-in">
-        <button onClick={() => setTab("blueprint")}
+        <button type="button" onClick={() => setTab("blueprint")}
           className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "blueprint" ? "bg-accent/10 text-accent" : "text-muted"}`}>Blueprint</button>
-        <button onClick={() => setTab("list")}
+        <button type="button" onClick={() => setTab("list")}
           className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "list" ? "bg-accent/10 text-accent" : "text-muted"}`}>Workflows ({workflows.length})</button>
       </div>
 
@@ -55,7 +55,7 @@ export default function WorkflowsPage() {
               <select value={complexity} onChange={(e) => setComplexity(e.target.value)} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
                 {COMPLEXITIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
-              <button onClick={loadBlueprint} className="px-5 py-2 bg-accent text-black rounded-lg text-sm font-medium">Generate</button>
+              <button type="button" onClick={loadBlueprint} className="px-5 py-2 bg-accent text-black rounded-lg text-sm font-medium">Generate</button>
             </div>
 
             {["bug_fix", "refactor", "release"].includes(cat) && (
@@ -77,7 +77,7 @@ export default function WorkflowsPage() {
 
               <div className="relative">
                 {blueprint.steps.map((s: any, i: number) => (
-                  <div key={i} className="flex gap-4 pb-4 relative">
+                  <div key={s.name} className="flex gap-4 pb-4 relative">
                     {i < blueprint.steps.length - 1 && <div className="absolute left-[11px] top-6 bottom-0 w-px bg-border" />}
                     <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center shrink-0 mt-0.5">
                       <div className="w-2 h-2 rounded-full bg-accent" />
@@ -97,8 +97,8 @@ export default function WorkflowsPage() {
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="text-xs text-muted mb-2">Quality gates</div>
                   <div className="flex flex-wrap gap-2">
-                    {blueprint.quality_gates.map((g: string, i: number) => (
-                      <span key={i} className="px-2 py-1 bg-surface rounded text-xs text-muted">{g}</span>
+                    {blueprint.quality_gates.map((g: string) => (
+                      <span key={g} className="px-2 py-1 bg-surface rounded text-xs text-muted">{g}</span>
                     ))}
                   </div>
                 </div>
@@ -132,8 +132,9 @@ export default function WorkflowsPage() {
             </div>
             <div className="flex gap-2">
               <input type="number" value={classifyInput.deps} onChange={(e) => setClassifyInput({ ...classifyInput, deps: +e.target.value })}
-                placeholder="Dependencies" className="w-32 bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
-              <button onClick={runClassify} className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">Classify</button>
+                placeholder="Dependencies" aria-label="Number of dependencies"
+                className="w-32 bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
+              <button type="button" onClick={runClassify} className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">Classify</button>
             </div>
             {classification && (
               <div className="mt-3 text-sm">

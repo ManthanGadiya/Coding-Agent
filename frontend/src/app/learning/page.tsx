@@ -35,7 +35,7 @@ export default function LearningPage() {
 
       <div className="flex gap-2 border-b border-border pb-2 animate-in">
         {tabs.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
+          <button key={t.key} type="button" onClick={() => setTab(t.key)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === t.key ? "bg-accent/10 text-accent" : "text-muted hover:text-foreground"
             }`}
@@ -52,14 +52,15 @@ export default function LearningPage() {
             <div className="flex gap-2">
               <input value={whyInput} onChange={(e) => setWhyInput(e.target.value)}
                 placeholder="Paste problem description (one line per why)..."
+                aria-label="Problem description for 5 Whys analysis"
                 className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
-              <button onClick={async () => { const r = await api.learning.fiveWhys(whyInput); setWhys(r); }}
+              <button type="button" onClick={async () => { const r = await api.learning.fiveWhys(whyInput); setWhys(r); }}
                 className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">Analyze</button>
             </div>
             {whys && (
               <div className="mt-3 space-y-1">
                 {whys.map((w: any, i: number) => (
-                  <div key={i} className="flex gap-2 text-sm"><span className="text-accent font-mono shrink-0">{w.question}:</span><span>{w.answer}</span></div>
+                  <div key={w.question} className="flex gap-2 text-sm"><span className="text-accent font-mono shrink-0">{w.question}:</span><span>{w.answer}</span></div>
                 ))}
               </div>
             )}
@@ -78,8 +79,8 @@ export default function LearningPage() {
               <p className="text-xs text-muted mt-1">Root cause: {f.root_cause}</p>
               {f.preventive_actions?.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {f.preventive_actions.map((a: string, i: number) => (
-                    <span key={i} className="px-2 py-0.5 bg-surface rounded text-xs text-muted">{a}</span>
+                  {f.preventive_actions.map((a: string) => (
+                    <span key={a} className="px-2 py-0.5 bg-surface rounded text-xs text-muted">{a}</span>
                   ))}
                 </div>
               )}
@@ -113,8 +114,8 @@ export default function LearningPage() {
         <div className="animate-in">
           {metrics.length === 0 ? <p className="text-sm text-muted">No metrics recorded.</p> : (
             <div className="space-y-3">
-              {metrics.slice().reverse().map((m: any, i: number) => (
-                <div key={i} className="bg-card border border-border rounded-xl p-4">
+              {metrics.slice().reverse().map((m: any) => (
+                <div key={m.timestamp ?? m.id} className="bg-card border border-border rounded-xl p-4">
                   <div className="text-xs font-mono text-muted mb-2">{m.timestamp}</div>
                   <div className="text-2xl font-mono font-bold text-accent">{m.overall}</div>
                   <div className="mt-2 flex flex-wrap gap-2">

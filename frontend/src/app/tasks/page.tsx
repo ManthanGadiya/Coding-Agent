@@ -22,7 +22,7 @@ export default function Tasks() {
       <div className="bg-card border border-border rounded-xl divide-y divide-border">
         {tasks.map((t) => (
           <div key={t.title} className="flex items-center gap-4 px-5 py-4">
-            <input type="checkbox" className="accent-accent rounded" />
+            <input type="checkbox" aria-label={`Mark "${t.title}" as complete`} className="accent-accent rounded" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">{t.title}</div>
               <div className="text-xs text-muted">{t.project}</div>

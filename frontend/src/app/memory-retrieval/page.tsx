@@ -37,8 +37,9 @@ export default function MemoryRetrievalPage() {
         <div className="flex gap-3">
           <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()}
             placeholder="Search memories..."
+            aria-label="Search query"
             className="flex-1 bg-surface border border-border rounded-lg px-4 py-2.5 text-sm" />
-          <button onClick={search} disabled={loading || !query}
+          <button type="button" onClick={search} disabled={loading || !query}
             className="px-5 py-2.5 bg-accent text-black rounded-lg text-sm font-medium disabled:opacity-50">
             {loading ? "Searching..." : "Retrieve"}
           </button>
@@ -95,7 +96,7 @@ export default function MemoryRetrievalPage() {
               <p className="text-sm">{m.content}</p>
               {m.tags?.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {m.tags.map((t: string, i: number) => <span key={i} className="px-2 py-0.5 bg-surface rounded text-xs text-muted">{t}</span>)}
+                  {m.tags.map((t: string) => <span key={t} className="px-2 py-0.5 bg-surface rounded text-xs text-muted">{t}</span>)}
                 </div>
               )}
               {m.factors && (

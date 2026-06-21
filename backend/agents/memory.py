@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage
 from backend.core.database import SessionLocal
-from backend.models.memory import ProjectMemory
+from backend.models.memory import ProjectMemory, MemoryCategory, ConfidenceLevel
 from backend.models.project import Project
 
 
@@ -61,12 +61,12 @@ class MemoryAgent(BaseAgent):
         try:
             entry = ProjectMemory(
                 project_id=data.get("project_id"),
+                category=data.get("category", MemoryCategory.KNOWLEDGE),
                 key=data.get("key"),
                 value=data.get("value"),
-                category=data.get("category", "general"),
-                source=data.get("source", "memory_agent"),
-                importance=data.get("importance", 1),
-                tags=data.get("tags", [])
+                context=data.get("context"),
+                tags=data.get("tags"),
+                confidence=data.get("confidence", ConfidenceLevel.MEDIUM)
             )
             db.add(entry)
             db.commit()
