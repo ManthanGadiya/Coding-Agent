@@ -6,6 +6,7 @@ from backend.tools import (
     TOOL_REGISTRY, get_tool, get_tool_audit_log, ToolResult
 )
 from backend.core.autonomy import AutonomyController, SafetyManager
+from backend.core.safety import safety_controller
 
 router = APIRouter(prefix="/tools", tags=["tools"])
 
@@ -77,13 +78,13 @@ async def rollback_backup(path: str):
     raise HTTPException(404, f"No backup found for {path}")
 
 
-class ImpactRequest(BaseModel):
+class SafetyImpactRequest(BaseModel):
     action: str
     target: str
 
 
 @router.post("/safety/impact")
-async def impact_report(req: ImpactRequest):
+async def impact_report(req: SafetyImpactRequest):
     report = safety.impact_report(req.action, req.target)
     return report
 
@@ -91,3 +92,36 @@ async def impact_report(req: ImpactRequest):
 @router.get("/safety/backups")
 async def backup_history(limit: int = 20):
     return {"backups": safety.get_backup_history(limit)}
+
+
+class ScanSecretsRequest(BaseModel):
+    content: str
+    filename: str = ""
+
+
+@router.post("/safety/scan-secrets")
+async def scan_secrets(req: ScanSecretsRequest):
+    return safety_controller.scan_secrets(req.content, req.filename)
+
+
+class ScanFileSecretsRequest(BaseModel):
+    path: str
+
+
+@router.post("/safety/scan-file-secrets")
+async def scan_file_secrets(req: ScanFileSecretsRequest):
+    return safety_controller.scan_file_secrets(req.path)
+
+
+class VerifyBackupRequest(BaseModel):
+    backup_path: str
+
+
+@router.post("/safety/verify-backup")
+async def verify_backup(req: VerifyBackupRequest):
+    return safety_controller.verify_backup(req.backup_path)
+
+
+@router.post("/safety/pre-check")
+async def pre_operation_check(action: str, target: str, content: str = ""):
+    return safety_controller.check_pre_operation(action, target, content)
