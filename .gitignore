@@ -1,2 +1,14 @@
 .env
 /.idea
+__pycache__/
+*.pyc
+*.pyo
+camera.db
+*.db
+frontend/.next/
+frontend/out/
+dist/
+build/
+*.egg-info/
+.opencode/node_modules/
+.opencode/skills/*/scripts/*/__pycache__/
