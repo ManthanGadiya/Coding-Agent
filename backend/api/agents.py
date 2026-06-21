@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 from pydantic import BaseModel
 
 from backend.core.database import get_db
@@ -39,12 +40,47 @@ class AgentResponse(BaseModel):
     current_task_id: Optional[str]
     tasks_completed: int
     tasks_failed: int
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
 
+
+# --- Orchestrator-specific routes (must be before /{agent_id} routes) ---
+
+@router.get("/registry/list")
+def list_agent_types():
+    return {"agent_types": list(AGENT_REGISTRY.keys())}
+
+
+@router.get("/orchestrator/status")
+def get_orchestrator_status():
+    orch = get_orchestrator()
+    return orch._report_status({"include_agents": True}).output
+
+
+@router.get("/orchestrator/info")
+def get_orchestrator_info():
+    orch = get_orchestrator()
+    return orch.get_status()
+
+
+@router.post("/orchestrator/route")
+async def route_task(task_data: dict):
+    orch = get_orchestrator()
+    result = await orch._route_task(task_data)
+    return {"success": result.success, "output": result.output}
+
+
+@router.post("/orchestrator/workflow")
+async def run_workflow(workflow_data: dict):
+    orch = get_orchestrator()
+    result = await orch._manage_workflow(workflow_data)
+    return {"success": result.success, "output": result.output}
+
+
+# --- CRUD routes ---
 
 @router.post("", response_model=AgentResponse, status_code=201)
 def create_agent_endpoint(agent: AgentCreate, db: Session = Depends(get_db)):
@@ -108,11 +144,6 @@ def get_agent_runtime_status(agent_id: str):
     return agent.get_status()
 
 
-@router.get("/registry/list")
-def list_agent_types():
-    return {"agent_types": list(AGENT_REGISTRY.keys())}
-
-
 @router.post("/{agent_id}/execute")
 async def execute_agent_task(agent_id: str, task_data: dict):
     orch = get_orchestrator()
@@ -127,25 +158,4 @@ async def execute_agent_task(agent_id: str, task_data: dict):
         "output": result.output,
         "error": result.error,
         "confidence": result.confidence,
-        "metadata": result.metadata
     }
-
-
-@router.post("/orchestrator/route")
-async def route_task(task_data: dict):
-    orch = get_orchestrator()
-    result = await orch._route_task(task_data)
-    return {"success": result.success, "output": result.output}
-
-
-@router.post("/orchestrator/workflow")
-async def run_workflow(workflow_data: dict):
-    orch = get_orchestrator()
-    result = await orch._manage_workflow(workflow_data)
-    return {"success": result.success, "output": result.output}
-
-
-@router.get("/orchestrator/status")
-def get_orchestrator_status():
-    orch = get_orchestrator()
-    return orch._report_status({"include_agents": True}).output

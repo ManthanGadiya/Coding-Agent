@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+from datetime import datetime
 
 from backend.core.database import get_db
 from backend.models.memory import (
@@ -62,8 +63,8 @@ class MemoryEntryResponse(BaseModel):
     source_agent: Optional[str]
     tags: Optional[List[str]]
     usage_count: int
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

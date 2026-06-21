@@ -86,7 +86,3 @@ class TaskLog(Base, TimestampMixin, UUIDMixin):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     level: Mapped[str] = mapped_column(String(20), default="info")
     extra_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column("metadata", JSON, nullable=True)
-
-    __table_args__ = (
-        Index("ix_task_logs_task_id", "task_id"),
-    )

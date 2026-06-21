@@ -48,10 +48,10 @@ class WorkflowResponse(BaseModel):
     total_steps: int
     assigned_agents: list
     completed_agents: list
-    started_at: Optional[str]
-    completed_at: Optional[str]
-    created_at: str
-    updated_at: str
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
