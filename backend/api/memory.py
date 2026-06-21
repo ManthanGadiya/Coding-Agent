@@ -7,8 +7,9 @@ from datetime import datetime
 from backend.core.database import get_db
 from backend.models.memory import (
     GlobalMemory, ProjectMemory, MemoryEntry,
-    MemoryScope, MemoryCategory, MemoryStatus, ConfidenceLevel
+    MemoryScope, MemoryCategory, MemoryStatus, ConfidenceLevel,
 )
+from backend.core.retention import retention_engine
 from sqlalchemy import desc
 
 router = APIRouter()
@@ -281,3 +282,56 @@ def search_memory(
     if project_id:
         query = query.filter(MemoryEntry.project_id == project_id)
     return query.order_by(MemoryEntry.confidence.desc()).limit(limit).all()
+
+
+@router.get("/retention/score/{entry_id}")
+def get_retention_score(entry_id: str, db: Session = Depends(get_db)):
+    entry = db.query(MemoryEntry).filter(MemoryEntry.id == entry_id).first()
+    if not entry:
+        raise HTTPException(404, "Entry not found")
+    score = retention_engine.score_entry({
+        "id": entry.id, "usage_count": getattr(entry, "usage_count", 0),
+        "confidence": entry.confidence.value if hasattr(entry.confidence, "value") else entry.confidence,
+        "extra_metadata": entry.extra_metadata or {},
+        "last_accessed": entry.last_accessed.isoformat() if getattr(entry, "last_accessed", None) else None,
+    })
+    return score.__dict__
+
+
+@router.get("/retention/stale")
+def list_stale_entries(db: Session = Depends(get_db)):
+    entries = db.query(MemoryEntry).filter(MemoryEntry.status == MemoryStatus.ACTIVE).all()
+    stale = retention_engine.get_stale_entries([
+        {"id": e.id, "usage_count": getattr(e, "usage_count", 0),
+         "confidence": e.confidence.value if hasattr(e.confidence, "value") else e.confidence,
+         "extra_metadata": e.extra_metadata or {},
+         "last_accessed": e.last_accessed.isoformat() if getattr(e, "last_accessed", None) else None}
+        for e in entries
+    ])
+    return {"stale": [s.__dict__ for s in stale], "count": len(stale)}
+
+
+@router.get("/retention/archival-candidates")
+def list_archival_candidates(db: Session = Depends(get_db)):
+    entries = db.query(MemoryEntry).filter(MemoryEntry.status == MemoryStatus.ACTIVE).all()
+    candidates = retention_engine.get_archival_candidates([
+        {"id": e.id, "usage_count": getattr(e, "usage_count", 0),
+         "confidence": e.confidence.value if hasattr(e.confidence, "value") else e.confidence,
+         "extra_metadata": e.extra_metadata or {},
+         "last_accessed": e.last_accessed.isoformat() if getattr(e, "last_accessed", None) else None}
+        for e in entries
+    ])
+    return {"candidates": candidates, "count": len(candidates)}
+
+
+@router.get("/retention/health")
+def retention_health(db: Session = Depends(get_db)):
+    entries = db.query(MemoryEntry).filter(MemoryEntry.status == MemoryStatus.ACTIVE).all()
+    metrics = retention_engine.health_metrics([
+        {"id": e.id, "usage_count": getattr(e, "usage_count", 0),
+         "confidence": e.confidence.value if hasattr(e.confidence, "value") else e.confidence,
+         "extra_metadata": e.extra_metadata or {},
+         "last_accessed": e.last_accessed.isoformat() if getattr(e, "last_accessed", None) else None}
+        for e in entries
+    ])
+    return metrics
