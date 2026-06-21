@@ -168,8 +168,14 @@ CAMera is in active development with a working backend and frontend.
 - Backend dev: `cd backend && uvicorn backend.main:app --reload` (port 8000)
 - API proxy configured in `frontend/next.config.ts`
 
+### Workflow Engine
+- **6 workflow types**: SDLC, Feature Development, Bug Fixing, Refactoring, Release, Task Pipeline
+- **4 complexity tiers**: Simple → Moderate → Complex → Critical with escalating agent involvement
+- **Step builders**: Each workflow generates correct step sequence (agents, gates, approvals) per classification
+- **Task classifier**: Scores scope/risk/dependencies/architecture/security/research factors → complexity level
+- **API endpoints**: POST /api/v1/workflows/blueprint, POST /api/v1/workflows/classify, GET /api/v1/workflows/categories
+
 ### Next Priorities
-- Workflow engine as code (SDLC, feature dev, bug fix, refactor, release, task pipeline per 05_WORKFLOWS/)
 - Learning system (08_LEARNING/): failure analysis, lesson extraction, pattern discovery
 - Weighted memory retrieval with 7-factor scoring (context, importance, confidence, outcome, frequency, relationships, recency)
 
