@@ -61,6 +61,8 @@ class FileTool(BaseTool):
         action = kwargs.get("action", "read")
         path = kwargs.get("path", "")
         content = kwargs.get("content")
+        pattern = kwargs.get("pattern", "")
+        max_results = kwargs.get("max_results", 50)
 
         if action == "read":
             return self._read(path)
@@ -68,8 +70,34 @@ class FileTool(BaseTool):
             return self._write(path, content)
         elif action == "delete":
             return self._delete(path)
+        elif action == "search":
+            return self._search(path, pattern, max_results)
         else:
             return ToolResult(success=False, error=f"Unknown action: {action}")
+
+    def _search(self, path: str, pattern: str, max_results: int = 50) -> ToolResult:
+        import re
+        try:
+            from pathlib import Path
+            base = Path(path)
+            if not base.exists():
+                return ToolResult(success=False, error=f"Path does not exist: {path}")
+            matches = []
+            for f in base.rglob("*"):
+                if not f.is_file():
+                    continue
+                try:
+                    content = f.read_text(errors="ignore")
+                    if re.search(pattern, content, re.IGNORECASE):
+                        matches.append(str(f.relative_to(base)))
+                        if len(matches) >= max_results:
+                            break
+                except Exception:
+                    continue
+            return ToolResult(success=True, data=matches,
+                              metadata={"total": len(matches), "pattern": pattern, "root": path})
+        except Exception as e:
+            return ToolResult(success=False, error=str(e))
 
     def _read(self, path: str) -> ToolResult:
         try:
@@ -248,10 +276,100 @@ class DockerTool(BaseTool):
             return ToolResult(success=False, error=str(e))
 
 
+class WebTool(BaseTool):
+    def __init__(self):
+        super().__init__(
+            name="web_tool",
+            description="Web search, documentation lookup, research with source evaluation",
+            required_permissions=[ToolPermission.READ],
+            risk_level=ToolRiskLevel.LOW
+        )
+
+    async def execute(self, **kwargs) -> ToolResult:
+        import httpx
+        action = kwargs.get("action", "fetch")
+        url = kwargs.get("url", "")
+        query = kwargs.get("query", "")
+
+        if action == "fetch":
+            return await self._fetch(url)
+        elif action == "search":
+            return await self._search_web(query)
+        elif action == "docs":
+            return await self._lookup_docs(url or query)
+        else:
+            return ToolResult(success=False, error=f"Unknown action: {action}")
+
+    async def _fetch(self, url: str) -> ToolResult:
+        if not url:
+            return ToolResult(success=False, error="No URL provided")
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+                resp = await client.get(url)
+                return ToolResult(success=resp.is_success, data=resp.text[:200000],
+                                  metadata={"status": resp.status_code, "url": url,
+                                            "content_type": resp.headers.get("content-type")})
+        except httpx.TimeoutException:
+            return ToolResult(success=False, error="Request timed out")
+        except Exception as e:
+            return ToolResult(success=False, error=str(e))
+
+    async def _search_web(self, query: str) -> ToolResult:
+        if not query:
+            return ToolResult(success=False, error="No search query")
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+                resp = await client.get("https://html.duckduckgo.com/html/",
+                                        params={"q": query},
+                                        headers={"User-Agent": "Mozilla/5.0"})
+                if resp.is_success:
+                    import re
+                    results = re.findall(r'<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)</a>', resp.text)
+                    return ToolResult(success=True,
+                                      data=[{"title": r[1], "url": r[0]} for r in results[:10]],
+                                      metadata={"query": query, "result_count": len(results[:10])})
+                return ToolResult(success=False, error=f"Search failed: HTTP {resp.status_code}")
+        except Exception as e:
+            return ToolResult(success=False, error=str(e))
+
+    async def _lookup_docs(self, target: str) -> ToolResult:
+        urls = {
+            "fastapi": "https://fastapi.tiangolo.com",
+            "sqlalchemy": "https://docs.sqlalchemy.org",
+            "nextjs": "https://nextjs.org/docs",
+            "react": "https://react.dev",
+            "python": "https://docs.python.org/3",
+        }
+        url = urls.get(target.lower(), target if target.startswith("http") else None)
+        if not url:
+            return self._search_web(f"{target} documentation")
+        return await self._fetch(url)
+
+
+class ResultPaginator:
+    def __init__(self, data: list, page_size: int = 100):
+        self.data = data
+        self.page_size = page_size
+        self.total = len(data)
+
+    def get_page(self, page: int = 0) -> Dict:
+        start = page * self.page_size
+        end = start + self.page_size
+        return {
+            "data": self.data[start:end],
+            "page": page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "remaining": max(0, self.total - end),
+            "has_more": end < self.total,
+        }
+
+
 TOOL_REGISTRY: Dict[str, BaseTool] = {
     "file": FileTool(),
     "command": CommandTool(),
     "browser": BrowserTool(),
+    "web": WebTool(),
     "git": GitTool(),
     "database": DatabaseTool(),
     "docker": DockerTool(),
