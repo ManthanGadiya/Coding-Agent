@@ -250,6 +250,96 @@ def get_workflow_blueprint(category: str, complexity: str = "moderate", **kwargs
     return builder(complexity_enum, **(kwargs if kwargs else {}))
 
 
+class QualityGateResult(str, Enum):
+    GREEN = "green"
+    YELLOW = "yellow"
+    RED = "red"
+
+
+@dataclass
+class QualityGate:
+    name: str
+    status: QualityGateResult = QualityGateResult.GREEN
+    details: str = ""
+    weight: float = 1.0
+
+
+def evaluate_quality_gate(checklist: List[Dict]) -> Dict:
+    total_score = 0.0
+    max_weight = 0.0
+    gate_results = []
+    red_flags = []
+    for item in checklist:
+        passed = item.get("passed", False)
+        weight = item.get("weight", 1.0)
+        name = item.get("name", "unnamed")
+        detail = item.get("detail", "")
+
+        if passed:
+            total_score += weight
+            gate_results.append(QualityGate(name=name, status=QualityGateResult.GREEN,
+                                            details=detail, weight=weight))
+        else:
+            gate_results.append(QualityGate(name=name, status=QualityGateResult.RED,
+                                            details=detail, weight=weight))
+            red_flags.append(name)
+        max_weight += weight
+
+    score_pct = total_score / max_weight if max_weight > 0 else 1.0
+    overall = QualityGateResult.GREEN
+    if score_pct < 0.7 or len(red_flags) > 1:
+        overall = QualityGateResult.RED
+    elif score_pct < 0.9 or red_flags:
+        overall = QualityGateResult.YELLOW
+
+    return {
+        "overall": overall.value,
+        "score": round(score_pct * 100, 1),
+        "gates": [{"name": g.name, "status": g.status.value, "details": g.details} for g in gate_results],
+        "failed_gates": red_flags,
+        "passed": overall == QualityGateResult.GREEN,
+    }
+
+
+def evaluate_completion_criteria(result_summary: Dict) -> Dict:
+    checks = [
+        {"name": "Requirements validated", "passed": result_summary.get("requirements_met", False), "weight": 3.0},
+        {"name": "Architecture verified", "passed": result_summary.get("architecture_verified", False), "weight": 2.0},
+        {"name": "Implementation complete", "passed": result_summary.get("implementation_complete", False), "weight": 2.0},
+        {"name": "Tests passed", "passed": result_summary.get("tests_passed", False), "weight": 3.0},
+        {"name": "Review passed", "passed": result_summary.get("review_passed", False), "weight": 2.0},
+        {"name": "Documentation updated", "passed": result_summary.get("documentation_updated", False), "weight": 1.0},
+        {"name": "Memory updated", "passed": result_summary.get("memory_updated", False), "weight": 1.0},
+        {"name": "Risks documented", "passed": result_summary.get("risks_documented", False), "weight": 1.0},
+    ]
+    result = evaluate_quality_gate(checks)
+
+    result["blocking_conditions"] = []
+    if not result_summary.get("requirements_met", False):
+        result["blocking_conditions"].append("Critical requirements missing")
+    if not result_summary.get("tests_passed", False):
+        result["blocking_conditions"].append("Critical tests failing")
+    if result_summary.get("has_security_issues", False):
+        result["blocking_conditions"].append("Critical security issues unresolved")
+    if result_summary.get("has_architecture_issues", False):
+        result["blocking_conditions"].append("Critical architecture issues unresolved")
+    if result_summary.get("constitution_violation", False):
+        result["blocking_conditions"].append("Constitution violations exist")
+
+    result["completable"] = len(result["blocking_conditions"]) == 0
+    return result
+
+
+def get_workflow_for_complexity(complexity: ComplexityLevel) -> str:
+    mapping = {
+        ComplexityLevel.SIMPLE: "task_pipeline",
+        ComplexityLevel.MODERATE: "sdlc",
+        ComplexityLevel.COMPLEX: "sdlc",
+        ComplexityLevel.CRITICAL: "sdlc",
+    }
+    return mapping.get(complexity, "task_pipeline")
+
+
 def classify_task(scope: str, risk: str, dependencies: int, architecture_impact: bool,
                   security_impact: bool, research_needed: bool) -> ComplexityLevel:
     score = 0
