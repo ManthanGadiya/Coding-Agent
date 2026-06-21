@@ -7,6 +7,7 @@ from backend.api.workflows import router as workflows_router
 from backend.api.projects import router as projects_router
 from backend.api.llm import router as llm_router
 from backend.api.decisions import router as decisions_router
+from backend.api.autonomy import router as autonomy_router
 
 router = APIRouter()
 
@@ -17,3 +18,4 @@ router.include_router(workflows_router, prefix="/workflows", tags=["workflows"])
 router.include_router(projects_router, prefix="/projects", tags=["projects"])
 router.include_router(llm_router, prefix="/llm", tags=["llm"])
 router.include_router(decisions_router, prefix="/decisions", tags=["decisions"])
+router.include_router(autonomy_router, prefix="/autonomy", tags=["autonomy"])
