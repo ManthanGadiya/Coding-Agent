@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Set
 from enum import Enum
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from pathlib import Path
 
 
 class AutonomyMode(str, Enum):
@@ -28,6 +29,62 @@ class CapabilityType(str, Enum):
     PERMANENT = "permanent"
     SESSION = "session"
     TEMPORARY = "temporary"
+
+
+@dataclass
+class BackupRecord:
+    path: str
+    backup_path: str
+    timestamp: str = ""
+    size: int = 0
+
+
+class SafetyManager:
+    def __init__(self):
+        self.backups: List[BackupRecord] = []
+
+    def backup(self, path: str) -> BackupRecord:
+        import tempfile, os, shutil
+        from datetime import datetime
+        ts = datetime.utcnow().isoformat()
+        if os.path.isdir(path):
+            tmp = tempfile.mkdtemp()
+            dst = os.path.join(tmp, os.path.basename(path))
+            shutil.copytree(path, dst)
+            size = sum(f.stat().st_size for f in Path(dst).rglob("*") if f.is_file())
+        elif os.path.isfile(path):
+            tmp = tempfile.mkdtemp()
+            dst = os.path.join(tmp, os.path.basename(path))
+            shutil.copy2(path, dst)
+            size = os.path.getsize(path)
+        else:
+            dst = ""
+            size = 0
+        record = BackupRecord(path=path, backup_path=dst, timestamp=ts, size=size)
+        self.backups.append(record)
+        return record
+
+    def rollback(self, record: BackupRecord) -> bool:
+        import shutil, os
+        try:
+            if os.path.isdir(record.backup_path):
+                if os.path.exists(record.path):
+                    shutil.rmtree(record.path)
+                shutil.copytree(record.backup_path, record.path)
+            elif os.path.isfile(record.backup_path):
+                shutil.copy2(record.backup_path, record.path)
+            return True
+        except Exception:
+            return False
+
+    def impact_report(self, action: str, target: str) -> Dict:
+        from backend.core.safety import safety_controller
+        return safety_controller.analyze_impact(action, target)
+
+    def get_backup_history(self, limit: int = 20) -> List[Dict]:
+        return [{"path": r.path, "backup_path": r.backup_path,
+                 "timestamp": r.timestamp, "size": r.size}
+                for r in self.backups[-limit:]]
 
 
 @dataclass
@@ -227,6 +284,24 @@ class AutonomyController:
         if not appr["approved"]:
             return {"can_execute": False, "permission": perm, "approval": appr}
 
+        confidence_thresholds = {"high": 0.7, "medium": 0.8, "low": 0.95}
+        conf_scores = {"high": 0.9, "medium": 0.7, "low": 0.5}
+        risk = self.permissions.get_capability_risk(action)
+
+        risk_multipliers = {"low": 1.0, "medium": 1.1, "high": 1.3, "critical": 1.5}
+        threshold = confidence_thresholds.get(confidence, 0.8)
+        risk_factor = risk_multipliers.get(risk.value, 1.0)
+        effective_threshold = min(threshold * risk_factor, 1.0)
+        agent_confidence = conf_scores.get(confidence, 0.7)
+
+        if agent_confidence < effective_threshold:
+            return {"can_execute": True,
+                    "permission": perm, "approval": appr,
+                    "warnings": [f"Confidence ({confidence}) may be insufficient for risk level ({risk.value})"],
+                    "recommend": "escalate"}
+
+        return {"can_execute": True, "permission": perm, "approval": appr, "warnings": perm.get("warnings", [])}
+
     def request_temporary_capability(self, capability: str, agent_id: str, task_id: str,
                                       reason: str, duration_minutes: int = 60) -> Dict:
         cap = CAPABILITY_REGISTRY.get(capability)
@@ -275,21 +350,3 @@ class AutonomyController:
 
     def get_capability_requests(self) -> List[Dict]:
         return self.capability_requests
-
-        confidence_thresholds = {"high": 0.7, "medium": 0.8, "low": 0.95}
-        conf_scores = {"high": 0.9, "medium": 0.7, "low": 0.5}
-        risk = self.permissions.get_capability_risk(action)
-
-        risk_multipliers = {"low": 1.0, "medium": 1.1, "high": 1.3, "critical": 1.5}
-        threshold = confidence_thresholds.get(confidence, 0.8)
-        risk_factor = risk_multipliers.get(risk.value, 1.0)
-        effective_threshold = min(threshold * risk_factor, 1.0)
-        agent_confidence = conf_scores.get(confidence, 0.7)
-
-        if agent_confidence < effective_threshold:
-            return {"can_execute": True,
-                    "permission": perm, "approval": appr,
-                    "warnings": [f"Confidence ({confidence}) may be insufficient for risk level ({risk.value})"],
-                    "recommend": "escalate"}
-
-        return {"can_execute": True, "permission": perm, "approval": appr, "warnings": perm.get("warnings", [])}
