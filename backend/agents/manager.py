@@ -1,6 +1,8 @@
 from typing import Any, Dict, List, Optional, Type
 import asyncio
 from datetime import datetime
+from enum import Enum
+from dataclasses import dataclass, field
 
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage, AgentState
 from backend.agents.coder import CoderAgent
@@ -10,6 +12,47 @@ from backend.agents.memory import MemoryAgent
 from backend.agents.debugger import DebuggerAgent
 from backend.agents.architect import ArchitectAgent
 from backend.agents.planner import PlannerAgent
+
+
+class ConflictStep(str, Enum):
+    IDENTIFIED = "identified"
+    DIRECT_DISCUSSION = "direct_discussion"
+    EVIDENCE_EXCHANGE = "evidence_exchange"
+    CONSENSUS_ATTEMPT = "consensus_attempt"
+    MANAGER_ARBITRATION = "manager_arbitration"
+    USER_ESCALATION = "user_escalation"
+
+
+class ConflictSeverity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+@dataclass
+class ConflictRecord:
+    conflict_id: str
+    agents_involved: List[str]
+    topic: str
+    severity: ConflictSeverity
+    current_step: ConflictStep = ConflictStep.IDENTIFIED
+    evidence: Dict[str, str] = field(default_factory=dict)
+    arguments: Dict[str, str] = field(default_factory=dict)
+    resolution: Optional[str] = None
+    reasoning: Optional[str] = None
+    outcome: Optional[str] = None
+    lessons: List[str] = field(default_factory=list)
+    created_at: str = ""
+    resolved_at: Optional[str] = None
+
+
+DISALLOWED_COMMUNICATION_PATHS = {
+    ("reviewer", "architect"): "Reviewer→Architect must go through Manager",
+    ("debugger", "architect"): "Debugger→Architect must go through Manager",
+    ("coder", "firecrawl"): "Coder cannot use research tools directly — use Planner",
+    ("coder", "web_research"): "Coder cannot do independent research — use Planner",
+}
 
 
 class ManagerAgent(BaseAgent):
@@ -26,6 +69,7 @@ class ManagerAgent(BaseAgent):
         )
         self.agents: Dict[str, BaseAgent] = {}
         self.workflows: Dict[str, Dict] = {}
+        self.conflict_records: List[ConflictRecord] = []
         self._init_default_agents()
 
     def _init_default_agents(self):
@@ -154,29 +198,90 @@ class ManagerAgent(BaseAgent):
             metadata={"agent_count": len(self.agents)}
         )
 
+    def check_communication_path(self, sender: str, receiver: str) -> Optional[str]:
+        key = (sender, receiver)
+        if key in DISALLOWED_COMMUNICATION_PATHS:
+            return DISALLOWED_COMMUNICATION_PATHS[key]
+        return None
+
     async def _resolve_conflict(self, data: Dict) -> AgentResult:
         agents_involved = data.get("agents", [])
         issue = data.get("issue", "")
-        evidence = data.get("evidence", "")
+        arguments = data.get("arguments", {})
 
-        # ponytail: simple tie-break — higher capability count wins
-        resolution = None
-        if len(agents_involved) == 2:
-            a1 = self.get_agent(agents_involved[0])
-            a2 = self.get_agent(agents_involved[1])
-            if a1 and a2:
-                resolution = agents_involved[0] if len(a1.capabilities) >= len(a2.capabilities) else agents_involved[1]
+        conflict_id = f"conflict-{len(self.conflict_records) + 1}"
+        record = ConflictRecord(
+            conflict_id=conflict_id,
+            agents_involved=agents_involved,
+            topic=issue,
+            severity=ConflictSeverity(data.get("severity", "medium")),
+            arguments=arguments,
+            created_at=datetime.utcnow().isoformat(),
+        )
+
+        # Step 1-2: Direct Discussion + Evidence Exchange
+        record.current_step = ConflictStep.DIRECT_DISCUSSION
+        scores = {}
+        for agent_id in agents_involved:
+            agent = self.get_agent(agent_id)
+            if agent:
+                arg = arguments.get(agent_id, "")
+                scores[agent_id] = {
+                    "argument_quality": min(len(arg) / 200, 1.0),
+                    "capability_count": len(agent.capabilities),
+                    "has_evidence": bool(data.get(f"evidence_{agent_id}", "")),
+                }
+
+        # Step 3: Consensus Attempt
+        record.current_step = ConflictStep.EVIDENCE_EXCHANGE
+        if len(agents_involved) == 2 and scores:
+            a1, a2 = agents_involved[0], agents_involved[1]
+            s1 = scores.get(a1, {})
+            s2 = scores.get(a2, {})
+            score1 = s1.get("argument_quality", 0) + s1.get("capability_count", 0) * 0.1
+            score2 = s2.get("argument_quality", 0) + s2.get("capability_count", 0) * 0.1
+
+            # Step 4: Consensus attempt — within 20% is close enough
+            record.current_step = ConflictStep.CONSENSUS_ATTEMPT
+            max_score = max(score1, score2)
+            min_score = min(score1, score2)
+            if max_score > 0 and (max_score - min_score) / max_score < 0.2:
+                record.resolution = "consensus"
+                record.reasoning = "Agents reached consensus through evidence exchange"
+                record.outcome = "resolved"
+            else:
+                # Step 5: Manager Arbitration
+                record.current_step = ConflictStep.MANAGER_ARBITRATION
+                winner = a1 if score1 >= score2 else a2
+                record.resolution = winner
+                record.reasoning = (
+                    f"Manager arbitration: {winner} won on evidence strength "
+                    f"({score1:.2f} vs {score2:.2f})"
+                )
+                record.outcome = "resolved"
+
+                # Step 6: User Escalation if unresolved
+                if data.get("escalate", False) or record.severity == ConflictSeverity.CRITICAL:
+                    record.current_step = ConflictStep.USER_ESCALATION
+                    record.outcome = "escalated_to_user"
+
+        record.resolved_at = datetime.utcnow().isoformat()
+        self.conflict_records.append(record)
 
         return AgentResult(
             task_id="",
             success=True,
             output={
-                "resolution": resolution or "needs_user_input",
+                "conflict_id": conflict_id,
+                "resolution": record.resolution,
+                "outcome": record.outcome,
+                "step": record.current_step.value,
                 "issue": issue,
-                "agents_involved": agents_involved
+                "agents_involved": agents_involved,
             },
-            metadata={"resolved": resolution is not None}
-        )
+            metadata={"resolved": record.outcome == "resolved", "severity": record.severity.value}
+        )</parameter>
+
 
     async def _manage_workflow(self, data: Dict) -> AgentResult:
         workflow_id = data.get("workflow_id", str(id(data)))

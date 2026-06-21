@@ -181,3 +181,47 @@ async def execute_agent_task(agent_id: str, task_data: dict):
         "error": result.error,
         "confidence": result.confidence,
     }
+
+
+class ConflictResolveRequest(BaseModel):
+    agents: List[str]
+    issue: str
+    arguments: Dict[str, str] = {}
+    evidence: Dict[str, str] = {}
+    severity: str = "medium"
+    escalate: bool = False
+
+
+@router.post("/conflict/resolve")
+async def resolve_conflict(req: ConflictResolveRequest):
+    mgr = get_manager()
+    data = req.model_dump()
+    for agent_id, ev in req.evidence.items():
+        data[f"evidence_{agent_id}"] = ev
+    result = await mgr._resolve_conflict(data)
+    return {
+        "success": result.success,
+        "output": result.output,
+        "error": result.error,
+    }
+
+
+@router.get("/conflict/history")
+def conflict_history():
+    mgr = get_manager()
+    return {
+        "conflicts": [
+            {"conflict_id": c.conflict_id, "agents": c.agents_involved,
+             "topic": c.topic, "step": c.current_step.value,
+             "outcome": c.outcome}
+            for c in mgr.conflict_records
+        ]
+    }
+
+
+@router.get("/communication/check")
+def check_communication_path(sender: str, receiver: str):
+    mgr = get_manager()
+    blocked = mgr.check_communication_path(sender, receiver)
+    return {"allowed": blocked is None, "sender": sender,
+            "receiver": receiver, "reason": blocked}
