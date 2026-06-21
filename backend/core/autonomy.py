@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Set
 from enum import Enum
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class AutonomyMode(str, Enum):
@@ -188,12 +188,26 @@ class ApprovalManager:
         return self.audit_log[-limit:]
 
 
+@dataclass
+class TemporaryCapabilityGrant:
+    capability: str
+    agent_id: str
+    task_id: str
+    reason: str
+    granted_at: str
+    expires_at: str
+    risk_level: str = "medium"
+    revoked: bool = False
+
+
 class AutonomyController:
     def __init__(self):
         self.mode: AutonomyMode = AutonomyMode.AGENT
         self.permissions = PermissionManager()
         self.approvals = ApprovalManager()
         self.decisions: List[Dict] = []
+        self.temp_grants: List[TemporaryCapabilityGrant] = []
+        self.capability_requests: List[Dict] = []
 
     def set_mode(self, mode: AutonomyMode) -> Dict:
         old = self.mode
@@ -212,6 +226,55 @@ class AutonomyController:
         appr = self.approvals.check_approval(action, session_id, project_id)
         if not appr["approved"]:
             return {"can_execute": False, "permission": perm, "approval": appr}
+
+    def request_temporary_capability(self, capability: str, agent_id: str, task_id: str,
+                                      reason: str, duration_minutes: int = 60) -> Dict:
+        cap = CAPABILITY_REGISTRY.get(capability)
+        if not cap:
+            return {"granted": False, "reason": f"Unknown capability '{capability}'"}
+
+        if cap.approval_class == ApprovalClass.EXPLICIT:
+            return {"granted": False, "reason": f"'{capability}' requires explicit approval",
+                    "requires_explicit": True}
+
+        now = datetime.utcnow()
+        expires = now + timedelta(minutes=duration_minutes)
+        grant = TemporaryCapabilityGrant(
+            capability=capability, agent_id=agent_id, task_id=task_id,
+            reason=reason, granted_at=now.isoformat(),
+            expires_at=expires.isoformat(),
+            risk_level=cap.risk.value,
+        )
+        self.temp_grants.append(grant)
+        self.approvals.grant_session(f"temp_{agent_id}_{task_id}", [capability])
+        entry = {"type": "temporary", "capability": capability, "agent_id": agent_id,
+                 "task_id": task_id, "duration_minutes": duration_minutes,
+                 "timestamp": now.isoformat()}
+        self.decisions.append(entry)
+        return {"granted": True, "grant": grant.__dict__, "message": f"Temporary '{capability}' granted for {duration_minutes}min"}
+
+    def revoke_expired_temporary_grants(self) -> List[str]:
+        now = datetime.utcnow()
+        revoked = []
+        for grant in self.temp_grants:
+            if not grant.revoked and datetime.fromisoformat(grant.expires_at) < now:
+                grant.revoked = True
+                self.approvals.revoke_session(f"temp_{grant.agent_id}_{grant.task_id}")
+                revoked.append(grant.capability)
+        return revoked
+
+    def get_temporary_grants(self, agent_id: str = "", task_id: str = "") -> List[Dict]:
+        results = []
+        for g in self.temp_grants:
+            if agent_id and g.agent_id != agent_id:
+                continue
+            if task_id and g.task_id != task_id:
+                continue
+            results.append(g.__dict__)
+        return results
+
+    def get_capability_requests(self) -> List[Dict]:
+        return self.capability_requests
 
         confidence_thresholds = {"high": 0.7, "medium": 0.8, "low": 0.95}
         conf_scores = {"high": 0.9, "medium": 0.7, "low": 0.5}
