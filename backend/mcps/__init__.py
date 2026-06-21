@@ -1,8 +1,8 @@
-from backend.mcp.base import MCPClient, MCPResult
-from backend.mcp.firecrawl import FirecrawlMCP
-from backend.mcp.github import GitHubMCP
-from backend.mcp.agent_memory import AgentMemoryMCP
-from backend.mcp.markitdown import MarkItDownMCP
+from backend.mcps.base import MCPClient, MCPResult
+from backend.mcps.firecrawl import FirecrawlMCP
+from backend.mcps.github import GitHubMCP
+from backend.mcps.agent_memory import AgentMemoryMCP
+from backend.mcps.markitdown import MarkItDownMCP
 
 MCP_REGISTRY = {
     "firecrawl": FirecrawlMCP,

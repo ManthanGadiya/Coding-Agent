@@ -1,7 +1,7 @@
 import httpx
 from typing import Optional, Dict, Any
 
-from backend.mcp.base import MCPClient, MCPResult
+from backend.mcps.base import MCPClient, MCPResult
 from backend.config.settings import get_settings
 
 settings = get_settings()
