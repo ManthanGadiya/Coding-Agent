@@ -10,6 +10,8 @@ from backend.agents.manager import ManagerAgent
 from backend.core.workflow_engine import (
     get_workflow_blueprint, classify_task, ComplexityLevel, WorkflowCategory,
     WORKFLOW_BUILDERS, WorkflowBlueprint,
+    evaluate_quality_gate, evaluate_completion_criteria,
+    get_workflow_for_complexity,
 )
 
 router = APIRouter()
@@ -252,6 +254,50 @@ async def resume_workflow(workflow_id: str, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(wf)
     return {"workflow": wf, "execution_result": {"success": result.success}}
+
+
+class QualityGateRequest(BaseModel):
+    checks: List[Dict[str, Any]]
+
+
+@router.post("/quality-gate")
+def evaluate_quality(req: QualityGateRequest):
+    return evaluate_quality_gate(req.checks)
+
+
+class CompletionCriteriaRequest(BaseModel):
+    requirements_met: bool = False
+    architecture_verified: bool = False
+    implementation_complete: bool = False
+    tests_passed: bool = False
+    review_passed: bool = False
+    documentation_updated: bool = False
+    memory_updated: bool = False
+    risks_documented: bool = False
+    has_security_issues: bool = False
+    has_architecture_issues: bool = False
+    constitution_violation: bool = False
+
+
+@router.post("/completion-check")
+def check_completion(req: CompletionCriteriaRequest):
+    return evaluate_completion_criteria(req.model_dump())
+
+
+@router.get("/recommend")
+def recommend_workflow(scope: str = "medium", risk: str = "low",
+                       dependencies: int = 0, architecture_impact: bool = False,
+                       security_impact: bool = False, research_needed: bool = False):
+    complexity = classify_task(scope, risk, dependencies, architecture_impact,
+                               security_impact, research_needed)
+    workflow_name = get_workflow_for_complexity(complexity)
+    blueprint = get_workflow_blueprint(workflow_name, complexity.value)
+    return {
+        "complexity": complexity.value,
+        "recommended_workflow": workflow_name,
+        "steps": [{"name": s.name, "agent": s.agent, "description": s.description}
+                  for s in blueprint.steps] if blueprint else [],
+    }
 
 
 @router.delete("/{workflow_id}", status_code=204)
