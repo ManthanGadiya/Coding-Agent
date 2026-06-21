@@ -1,4 +1,4 @@
-from backend.mcp.base import MCPClient, MCPResult
+from backend.mcps.base import MCPClient, MCPResult
 from typing import Optional, Dict
 
 
