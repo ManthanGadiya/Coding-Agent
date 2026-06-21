@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from backend.core.database import get_db
 from backend.models.agent import Agent, AgentType, AgentStatus
 from backend.agents import AGENT_REGISTRY, create_agent, get_manager
+from backend.core.disagreement import disagreement_engine
 
 router = APIRouter()
 
@@ -225,3 +226,64 @@ def check_communication_path(sender: str, receiver: str):
     blocked = mgr.check_communication_path(sender, receiver)
     return {"allowed": blocked is None, "sender": sender,
             "receiver": receiver, "reason": blocked}
+
+
+class RecordDisagreementRequest(BaseModel):
+    issue: str
+    agents: List[str]
+    arguments: Dict[str, str] = {}
+    severity: str = "medium"
+
+
+@router.post("/disagreement/record")
+def record_disagreement(req: RecordDisagreementRequest):
+    record = disagreement_engine.record_disagreement(req.issue, req.agents, req.arguments, req.severity)
+    return {
+        "id": record.id, "issue": record.issue, "agents": record.agents,
+        "class": record.disagreement_class.value, "severity": record.severity,
+        "user_notified": record.user_notified, "created_at": record.created_at,
+    }
+
+
+@router.get("/disagreement/notifications")
+def get_notifications():
+    pending = disagreement_engine.get_pending_notifications()
+    return {"notifications": [{"id": n.id, "disagreement_id": n.disagreement_id,
+                                "message": n.message, "read": n.read,
+                                "acknowledged": n.acknowledged, "created_at": n.created_at}
+                               for n in pending],
+            "count": len(pending)}
+
+
+class AcknowledgeRequest(BaseModel):
+    notification_id: str
+    response: Optional[str] = None
+
+
+@router.post("/disagreement/acknowledge")
+def acknowledge_notification(req: AcknowledgeRequest):
+    n = disagreement_engine.acknowledge(req.notification_id, req.response)
+    if not n:
+        raise HTTPException(404, "Notification not found")
+    return {"id": n.id, "acknowledged": n.acknowledged, "read": n.read}
+
+
+@router.post("/disagreement/{disagreement_id}/resolve")
+def resolve_disagreement(disagreement_id: str, resolution: str):
+    record = disagreement_engine.resolve(disagreement_id, resolution)
+    if not record:
+        raise HTTPException(404, "Disagreement record not found")
+    return {"id": record.id, "resolution": record.resolution, "resolved_at": record.resolved_at}
+
+
+@router.get("/disagreement/unresolved")
+def list_unresolved():
+    records = disagreement_engine.get_unresolved()
+    return {"disagreements": [{"id": r.id, "issue": r.issue, "class": r.disagreement_class.value,
+                                "severity": r.severity, "agents": r.agents} for r in records],
+            "count": len(records)}
+
+
+@router.get("/disagreement/history")
+def disagreement_history():
+    return {"records": disagreement_engine.get_history()}
