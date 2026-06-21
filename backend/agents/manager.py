@@ -280,7 +280,7 @@ class ManagerAgent(BaseAgent):
                 "agents_involved": agents_involved,
             },
             metadata={"resolved": record.outcome == "resolved", "severity": record.severity.value}
-        )</parameter>
+        )
 
 
     async def _manage_workflow(self, data: Dict) -> AgentResult:

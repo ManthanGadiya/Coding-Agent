@@ -33,6 +33,7 @@ class BaseTool(ABC):
         self.description = description
         self.required_permissions = required_permissions
         self.risk_level = risk_level
+        self._autonomy_check = None
 
     @abstractmethod
     async def execute(self, **kwargs) -> ToolResult:
@@ -46,6 +47,21 @@ class BaseTool(ABC):
             if arg not in kwargs:
                 return f"Missing required argument: {arg}"
         return None
+
+    def set_autonomy_check(self, check_fn):
+        self._autonomy_check = check_fn
+
+    async def safe_execute(self, agent_id: str = "", agent_role: str = "",
+                            session_id: str = "", **kwargs) -> ToolResult:
+        from datetime import datetime
+        result = await self.execute(**kwargs)
+        log_tool_use({
+            "tool": self.name, "agent_id": agent_id, "agent_role": agent_role,
+            "session_id": session_id, "params": {k: v for k, v in kwargs.items()
+                                                  if k not in ("content", "password", "secret")},
+            "success": result.success, "risk_level": self.risk_level.value,
+        })
+        return result
 
 
 class FileTool(BaseTool):
@@ -374,6 +390,19 @@ TOOL_REGISTRY: Dict[str, BaseTool] = {
     "database": DatabaseTool(),
     "docker": DockerTool(),
 }
+
+
+AUDIT_LOG: List[Dict] = []
+
+
+def log_tool_use(entry: Dict):
+    from datetime import datetime
+    entry["timestamp"] = datetime.utcnow().isoformat()
+    AUDIT_LOG.append(entry)
+
+
+def get_tool_audit_log(limit: int = 50) -> List[Dict]:
+    return AUDIT_LOG[-limit:]
 
 
 def get_tool(name: str) -> Optional[BaseTool]:
