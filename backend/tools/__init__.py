@@ -132,9 +132,129 @@ class CommandTool(BaseTool):
             return ToolResult(success=False, error=str(e))
 
 
+class BrowserTool(BaseTool):
+    def __init__(self):
+        super().__init__(
+            name="browser_tool",
+            description="Fetch and extract content from web pages",
+            required_permissions=[ToolPermission.READ],
+            risk_level=ToolRiskLevel.LOW
+        )
+
+    async def execute(self, **kwargs) -> ToolResult:
+        import httpx
+        url = kwargs.get("url", "")
+        if not url:
+            return ToolResult(success=False, error="No URL provided")
+        try:
+            resp = httpx.get(url, follow_redirects=True, timeout=30)
+            return ToolResult(success=resp.is_success, data=resp.text[:100000], metadata={"status": resp.status_code})
+        except Exception as e:
+            return ToolResult(success=False, error=str(e))
+
+
+class GitTool(BaseTool):
+    def __init__(self):
+        super().__init__(
+            name="git_tool",
+            description="Execute git operations (status, log, diff, add, commit, push, pull)",
+            required_permissions=[ToolPermission.READ, ToolPermission.EXECUTE],
+            risk_level=ToolRiskLevel.MEDIUM
+        )
+
+    async def execute(self, **kwargs) -> ToolResult:
+        import subprocess
+        action = kwargs.get("action", "status")
+        repo = kwargs.get("repo", ".")
+        safe_actions = {"status", "log", "diff", "show", "branch", "remote"}
+
+        if action not in safe_actions and action not in ("add", "commit", "push", "pull", "checkout", "merge"):
+            return ToolResult(success=False, error=f"Action '{action}' requires ADMIN permission")
+
+        cmd = ["git", "-C", repo, action]
+        if action == "log":
+            cmd.extend(["--oneline", "-10"])
+        elif action == "add":
+            cmd.append(kwargs.get("file", "."))
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            return ToolResult(success=result.returncode == 0, data=result.stdout or result.stderr, metadata={"returncode": result.returncode})
+        except Exception as e:
+            return ToolResult(success=False, error=str(e))
+
+
+class DatabaseTool(BaseTool):
+    def __init__(self):
+        super().__init__(
+            name="database_tool",
+            description="Execute SQL queries against project databases",
+            required_permissions=[ToolPermission.READ, ToolPermission.EXECUTE],
+            risk_level=ToolRiskLevel.HIGH
+        )
+
+    async def execute(self, **kwargs) -> ToolResult:
+        conn_str = kwargs.get("connection", "")
+        query = kwargs.get("query", "")
+        if not query:
+            return ToolResult(success=False, error="No query provided")
+        try:
+            from sqlalchemy import create_engine, text
+            engine = create_engine(conn_str) if conn_str else None
+            if engine:
+                with engine.connect() as conn:
+                    result = conn.execute(text(query))
+                    if query.strip().upper().startswith("SELECT"):
+                        rows = [dict(r._mapping) for r in result]
+                        return ToolResult(success=True, data=rows, metadata={"row_count": len(rows)})
+                    conn.commit()
+                    return ToolResult(success=True, data=f"Query executed, {result.rowcount} rows affected")
+            return ToolResult(success=False, error="No database connection configured")
+        except Exception as e:
+            return ToolResult(success=False, error=str(e))
+
+
+class DockerTool(BaseTool):
+    def __init__(self):
+        super().__init__(
+            name="docker_tool",
+            description="Manage Docker containers, images, and compose stacks",
+            required_permissions=[ToolPermission.EXECUTE],
+            risk_level=ToolRiskLevel.HIGH
+        )
+
+    async def execute(self, **kwargs) -> ToolResult:
+        import subprocess
+        action = kwargs.get("action", "ps")
+        name = kwargs.get("name", "")
+        safe_actions = {"ps", "images", "logs", "inspect", "stats"}
+
+        cmd = ["docker"]
+        if action == "ps":
+            cmd.extend(["ps", "-a"])
+        elif action == "images":
+            cmd.append("images")
+        elif action == "logs":
+            cmd.extend(["logs", "--tail", "50", name])
+        elif action not in safe_actions:
+            return ToolResult(success=False, error=f"Action '{action}' requires explicit approval")
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            return ToolResult(success=result.returncode == 0, data=result.stdout, metadata={"returncode": result.returncode})
+        except FileNotFoundError:
+            return ToolResult(success=False, error="Docker not available")
+        except Exception as e:
+            return ToolResult(success=False, error=str(e))
+
+
 TOOL_REGISTRY: Dict[str, BaseTool] = {
     "file": FileTool(),
     "command": CommandTool(),
+    "browser": BrowserTool(),
+    "git": GitTool(),
+    "database": DatabaseTool(),
+    "docker": DockerTool(),
 }
 
 
