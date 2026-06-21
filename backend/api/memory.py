@@ -190,6 +190,50 @@ def delete_memory_entry(entry_id: str, db: Session = Depends(get_db)):
     db.commit()
 
 
+class CompressRequest(BaseModel):
+    entry_ids: List[str]
+    level: int = 1
+
+
+@router.post("/compress")
+def compress_memories(req: CompressRequest, db: Session = Depends(get_db)):
+    from backend.core.compression import memory_compressor
+
+    entries = db.query(MemoryEntry).filter(MemoryEntry.id.in_(req.entry_ids)).all()
+    if not entries:
+        raise HTTPException(404, "No entries found")
+
+    entry_dicts = [{"id": e.id, "title": e.title, "content": e.content,
+                     "category": e.category.value, "tags": e.tags}
+                   for e in entries]
+    result = memory_compressor.compress(entry_dicts, level=req.level)
+
+    for e in entries:
+        meta = e.extra_metadata or {}
+        meta["compression_level"] = req.level
+        meta["compressed_at"] = result.created_at
+        meta["source_compression_ids"] = result.source_ids
+        e.extra_metadata = meta
+    db.commit()
+
+    return {"compression_level": req.level, "source_count": len(entries),
+            "output": result.output, "timestamp": result.created_at}
+
+
+@router.post("/compress/suggest")
+def suggest_compression(db: Session = Depends(get_db)):
+    from backend.core.compression import memory_compressor
+
+    entries = db.query(MemoryEntry).filter(
+        MemoryEntry.status == MemoryStatus.ACTIVE
+    ).all()
+    entry_dicts = [{"id": e.id, "title": e.title, "content": e.content,
+                     "category": e.category.value, "tags": e.tags}
+                   for e in entries]
+    suggestions = memory_compressor.suggest_patterns(entry_dicts)
+    return {"suggestions": suggestions, "total_entries": len(entries)}
+
+
 @router.get("/search")
 def search_memory(
     q: str,
