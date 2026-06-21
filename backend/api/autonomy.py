@@ -25,6 +25,34 @@ class GrantRequest(BaseModel):
     capabilities: list[str]
 
 
+class TempCapabilityRequest(BaseModel):
+    capability: str
+    agent_id: str
+    task_id: str
+    reason: str
+    duration_minutes: int = 60
+
+
+@router.post("/temporary/request")
+def request_temporary_capability(req: TempCapabilityRequest):
+    return controller.request_temporary_capability(
+        capability=req.capability, agent_id=req.agent_id,
+        task_id=req.task_id, reason=req.reason,
+        duration_minutes=req.duration_minutes,
+    )
+
+
+@router.get("/temporary/grants")
+def list_temporary_grants(agent_id: str = "", task_id: str = ""):
+    return {"grants": controller.get_temporary_grants(agent_id, task_id)}
+
+
+@router.post("/temporary/revoke-expired")
+def revoke_expired_temporary_grants():
+    revoked = controller.revoke_expired_temporary_grants()
+    return {"revoked": revoked}
+
+
 @router.get("/mode")
 def get_mode():
     return {"mode": controller.mode.value}
