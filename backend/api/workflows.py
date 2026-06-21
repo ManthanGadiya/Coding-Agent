@@ -112,6 +112,55 @@ def list_workflows(
     return query.order_by(Workflow.created_at.desc()).all()
 
 
+@router.get("/categories")
+def list_categories():
+    return {"categories": list(WORKFLOW_BUILDERS.keys())}
+
+
+class BlueprintRequest(BaseModel):
+    category: str
+    complexity: str = "moderate"
+    severity: Optional[str] = None
+    impact: Optional[str] = None
+    release_type: Optional[str] = None
+
+
+@router.post("/blueprint")
+def generate_blueprint(req: BlueprintRequest):
+    kwargs = {}
+    if req.severity: kwargs["severity"] = req.severity
+    if req.impact: kwargs["impact"] = req.impact
+    if req.release_type: kwargs["release_type"] = req.release_type
+    bp = get_workflow_blueprint(req.category, req.complexity, **kwargs)
+    if not bp:
+        raise HTTPException(status_code=400, detail=f"Unknown workflow category: {req.category}")
+    return {
+        "category": bp.category.value,
+        "complexity": bp.complexity.value,
+        "steps": [{"name": s.name, "agent": s.agent, "description": s.description} for s in bp.steps],
+        "quality_gates": bp.quality_gates,
+        "requires_approval": bp.requires_approval,
+        "requires_architect": bp.requires_architect,
+        "requires_reviewer": bp.requires_reviewer,
+    }
+
+
+class ClassifyRequest(BaseModel):
+    scope: str = "medium"
+    risk: str = "medium"
+    dependencies: int = 0
+    architecture_impact: bool = False
+    security_impact: bool = False
+    research_needed: bool = False
+
+
+@router.post("/classify")
+def classify(req: ClassifyRequest):
+    c = classify_task(req.scope, req.risk, req.dependencies,
+                      req.architecture_impact, req.security_impact, req.research_needed)
+    return {"complexity": c.value}
+
+
 @router.get("/{workflow_id}", response_model=WorkflowResponse)
 def get_workflow(workflow_id: str, db: Session = Depends(get_db)):
     wf = db.query(Workflow).filter(Workflow.id == workflow_id).first()
@@ -213,52 +262,3 @@ def delete_workflow(workflow_id: str, db: Session = Depends(get_db)):
     db.query(WorkflowStep).filter(WorkflowStep.workflow_id == workflow_id).delete()
     db.delete(wf)
     db.commit()
-
-
-class BlueprintRequest(BaseModel):
-    category: str
-    complexity: str = "moderate"
-    severity: Optional[str] = None
-    impact: Optional[str] = None
-    release_type: Optional[str] = None
-
-
-@router.post("/blueprint")
-def generate_blueprint(req: BlueprintRequest):
-    kwargs = {}
-    if req.severity: kwargs["severity"] = req.severity
-    if req.impact: kwargs["impact"] = req.impact
-    if req.release_type: kwargs["release_type"] = req.release_type
-    bp = get_workflow_blueprint(req.category, req.complexity, **kwargs)
-    if not bp:
-        raise HTTPException(status_code=400, detail=f"Unknown workflow category: {req.category}")
-    return {
-        "category": bp.category.value,
-        "complexity": bp.complexity.value,
-        "steps": [{"name": s.name, "agent": s.agent, "description": s.description} for s in bp.steps],
-        "quality_gates": bp.quality_gates,
-        "requires_approval": bp.requires_approval,
-        "requires_architect": bp.requires_architect,
-        "requires_reviewer": bp.requires_reviewer,
-    }
-
-
-class ClassifyRequest(BaseModel):
-    scope: str = "medium"
-    risk: str = "medium"
-    dependencies: int = 0
-    architecture_impact: bool = False
-    security_impact: bool = False
-    research_needed: bool = False
-
-
-@router.post("/classify")
-def classify(req: ClassifyRequest):
-    c = classify_task(req.scope, req.risk, req.dependencies,
-                      req.architecture_impact, req.security_impact, req.research_needed)
-    return {"complexity": c.value}
-
-
-@router.get("/categories")
-def list_categories():
-    return {"categories": list(WORKFLOW_BUILDERS.keys())}

@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from typing import Optional
 from pydantic import BaseModel
-from backend.core.autonomy import AutonomyController, AutonomyMode
+from backend.core.autonomy import AutonomyController, AutonomyMode, CAPABILITY_REGISTRY
 
 router = APIRouter()
 controller = AutonomyController()
@@ -55,7 +55,7 @@ def get_role_capabilities(role: str):
 @router.get("/registry")
 def get_capability_registry():
     return {k: {"risk": v.risk.value, "approval_class": v.approval_class.value, "description": v.description}
-            for k, v in controller.permissions.CAPABILITY_REGISTRY.items()}
+            for k, v in CAPABILITY_REGISTRY.items()}
 
 
 @router.post("/grant/session")
