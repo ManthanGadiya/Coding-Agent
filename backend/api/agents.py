@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from backend.core.database import get_db
 from backend.models.agent import Agent, AgentType, AgentStatus
-from backend.agents import AGENT_REGISTRY, create_agent, get_orchestrator
+from backend.agents import AGENT_REGISTRY, create_agent, get_manager
 
 router = APIRouter()
 
@@ -47,37 +47,59 @@ class AgentResponse(BaseModel):
         from_attributes = True
 
 
-# --- Orchestrator-specific routes (must be before /{agent_id} routes) ---
+# --- Manager routes (must be before /{agent_id} routes) ---
 
 @router.get("/registry/list")
 def list_agent_types():
     return {"agent_types": list(AGENT_REGISTRY.keys())}
 
 
+@router.get("/manager/status")
+def get_manager_status():
+    mgr = get_manager()
+    return mgr._report_status({"include_agents": True}).output
+
+
+@router.get("/manager/info")
+def get_manager_info():
+    mgr = get_manager()
+    return mgr.get_status()
+
+
+@router.post("/manager/route")
+async def route_task(task_data: dict):
+    mgr = get_manager()
+    result = await mgr._route_task(task_data)
+    return {"success": result.success, "output": result.output}
+
+
+@router.post("/manager/workflow")
+async def run_workflow(workflow_data: dict):
+    mgr = get_manager()
+    result = await mgr._manage_workflow(workflow_data)
+    return {"success": result.success, "output": result.output}
+
+
+# --- Backward compat: old /orchestrator/* aliases ---
+
 @router.get("/orchestrator/status")
 def get_orchestrator_status():
-    orch = get_orchestrator()
-    return orch._report_status({"include_agents": True}).output
+    return get_manager_status()
 
 
 @router.get("/orchestrator/info")
 def get_orchestrator_info():
-    orch = get_orchestrator()
-    return orch.get_status()
+    return get_manager_info()
 
 
 @router.post("/orchestrator/route")
-async def route_task(task_data: dict):
-    orch = get_orchestrator()
-    result = await orch._route_task(task_data)
-    return {"success": result.success, "output": result.output}
+async def orchestrator_route_task(task_data: dict):
+    return await route_task(task_data)
 
 
 @router.post("/orchestrator/workflow")
-async def run_workflow(workflow_data: dict):
-    orch = get_orchestrator()
-    result = await orch._manage_workflow(workflow_data)
-    return {"success": result.success, "output": result.output}
+async def orchestrator_run_workflow(workflow_data: dict):
+    return await run_workflow(workflow_data)
 
 
 # --- CRUD routes ---
@@ -137,8 +159,8 @@ def delete_agent(agent_id: str, db: Session = Depends(get_db)):
 
 @router.get("/{agent_id}/status")
 def get_agent_runtime_status(agent_id: str):
-    orch = get_orchestrator()
-    agent = orch.get_agent(agent_id)
+    mgr = get_manager()
+    agent = mgr.get_agent(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Runtime agent not found")
     return agent.get_status()
@@ -146,8 +168,8 @@ def get_agent_runtime_status(agent_id: str):
 
 @router.post("/{agent_id}/execute")
 async def execute_agent_task(agent_id: str, task_data: dict):
-    orch = get_orchestrator()
-    agent = orch.get_agent(agent_id)
+    mgr = get_manager()
+    agent = mgr.get_agent(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     from backend.agents.base import AgentTask

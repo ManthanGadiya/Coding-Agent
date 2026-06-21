@@ -38,7 +38,10 @@ export const api = {
     search: (q: string) => fetchJSON<any[]>(`/api/v1/memory/search?q=${encodeURIComponent(q)}`),
   },
 
+  manager: {
+    status: () => fetchJSON<any>("/api/v1/agents/manager/status"),
+  },
   orchestrator: {
-    status: () => fetchJSON<any>("/api/v1/agents/orchestrator/status"),
+    status: () => fetchJSON<any>("/api/v1/agents/manager/status"),
   },
 };

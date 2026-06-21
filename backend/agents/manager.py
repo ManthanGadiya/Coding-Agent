@@ -8,13 +8,15 @@ from backend.agents.reviewer import ReviewerAgent
 from backend.agents.tester import TesterAgent
 from backend.agents.memory import MemoryAgent
 from backend.agents.debugger import DebuggerAgent
+from backend.agents.architect import ArchitectAgent
+from backend.agents.planner import PlannerAgent
 
 
-class OrchestratorAgent(BaseAgent):
-    def __init__(self, agent_id: str = "orchestrator-1", config: Optional[Dict] = None):
+class ManagerAgent(BaseAgent):
+    def __init__(self, agent_id: str = "manager-1", config: Optional[Dict] = None):
         super().__init__(
             agent_id=agent_id,
-            name="Orchestrator Agent",
+            name="Manager Agent",
             capabilities=[
                 "route_task", "assign_agent", "monitor_progress",
                 "resolve_conflict", "manage_workflow", "report_status",
@@ -33,6 +35,8 @@ class OrchestratorAgent(BaseAgent):
             "tester-1": TesterAgent(),
             "memory-1": MemoryAgent(),
             "debugger-1": DebuggerAgent(),
+            "architect-1": ArchitectAgent(),
+            "planner-1": PlannerAgent(),
         }
         for agent_id, agent in defaults.items():
             self.register_agent(agent)
@@ -82,7 +86,7 @@ class OrchestratorAgent(BaseAgent):
             return AgentMessage(
                 sender=self.agent_id,
                 receiver=message.sender,
-                content=f"Orchestrator managing {len(self.agents)} agents. Status: {statuses}",
+                content=f"Manager managing {len(self.agents)} agents. Status: {statuses}",
                 message_type="response"
             )
         elif message.receiver in self.agents:
@@ -228,7 +232,7 @@ class OrchestratorAgent(BaseAgent):
     def _report_status(self, data: Dict) -> AgentResult:
         include_agents = data.get("include_agents", True)
         report = {
-            "orchestrator_state": self.state.value,
+            "manager_state": self.state.value,
             "active_workflows": len(self.workflows),
             "registered_agents": len(self.agents),
         }

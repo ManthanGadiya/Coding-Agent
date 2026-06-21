@@ -9,9 +9,9 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState<any[]>([]);
 
   useEffect(() => {
-    api.orchestrator.status().then(setOrch).catch(() => {});
-    api.projects.list().then(setProjects).catch(() => {});
-    api.tasks.list().then(setTasks).catch(() => {});
+    api.manager.status().then(setOrch).catch(() => {});
+    api.projects.list().then((d: any) => setProjects(d.projects ?? d)).catch(() => {});
+    api.tasks.list().then((d: any) => setTasks(d.tasks ?? d)).catch(() => {});
   }, []);
 
   const stats = [

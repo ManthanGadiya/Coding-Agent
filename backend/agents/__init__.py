@@ -6,7 +6,9 @@ from backend.agents.reviewer import ReviewerAgent
 from backend.agents.tester import TesterAgent
 from backend.agents.memory import MemoryAgent
 from backend.agents.debugger import DebuggerAgent
-from backend.agents.orchestrator import OrchestratorAgent
+from backend.agents.manager import ManagerAgent
+from backend.agents.architect import ArchitectAgent
+from backend.agents.planner import PlannerAgent
 
 AGENT_REGISTRY: Dict[str, type] = {
     "coder": CoderAgent,
@@ -14,7 +16,9 @@ AGENT_REGISTRY: Dict[str, type] = {
     "tester": TesterAgent,
     "memory": MemoryAgent,
     "debugger": DebuggerAgent,
-    "orchestrator": OrchestratorAgent,
+    "manager": ManagerAgent,
+    "architect": ArchitectAgent,
+    "planner": PlannerAgent,
 }
 
 
@@ -27,12 +31,12 @@ def create_agent(agent_type: str, agent_id: Optional[str] = None, config: Option
     return agent_cls(agent_id=agent_id, config=config)
 
 
-def get_orchestrator() -> OrchestratorAgent:
-    return OrchestratorAgent()
+def get_manager() -> ManagerAgent:
+    return ManagerAgent()
 
 
 __all__ = [
     "BaseAgent", "CoderAgent", "ReviewerAgent", "TesterAgent",
-    "MemoryAgent", "DebuggerAgent", "OrchestratorAgent",
-    "AGENT_REGISTRY", "create_agent", "get_orchestrator",
+    "MemoryAgent", "DebuggerAgent", "ManagerAgent", "ArchitectAgent", "PlannerAgent",
+    "AGENT_REGISTRY", "create_agent", "get_manager",
 ]

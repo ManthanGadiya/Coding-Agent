@@ -7,7 +7,7 @@ from datetime import datetime
 
 from backend.core.database import get_db
 from backend.models.task import Task, TaskStatus, TaskType, TaskComplexity, TaskLog
-from backend.agents.orchestrator import OrchestratorAgent
+from backend.agents.manager import ManagerAgent
 
 router = APIRouter()
 
@@ -143,9 +143,9 @@ def classify_task(task_id: str, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    orchestrator = OrchestratorAgent()
-    result = orchestrator._classify_task({"description": task.description or task.title})
-    complexity = orchestrator._assess_complexity({"description": task.description or task.title})
+    manager = ManagerAgent()
+    result = manager._classify_task({"description": task.description or task.title})
+    complexity = manager._assess_complexity({"description": task.description or task.title})
     return {"classification": result.output, "complexity": complexity.output}
 
 

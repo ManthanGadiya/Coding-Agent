@@ -7,7 +7,7 @@ export default function Projects() {
   const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
-    api.projects.list().then(setProjects).catch(() => {});
+    api.projects.list().then((d: any) => setProjects(d.projects ?? d)).catch(() => {});
   }, []);
 
   return (

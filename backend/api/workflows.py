@@ -6,7 +6,7 @@ from datetime import datetime
 
 from backend.core.database import get_db
 from backend.models.workflow import Workflow, WorkflowStatus, WorkflowType, WorkflowStep
-from backend.agents.orchestrator import OrchestratorAgent
+from backend.agents.manager import ManagerAgent
 
 router = APIRouter()
 
@@ -145,8 +145,8 @@ async def execute_workflow(workflow_id: str, db: Session = Depends(get_db)):
     wf.started_at = datetime.utcnow()
     db.commit()
 
-    orch = OrchestratorAgent()
-    result = await orch.run_workflow(workflow_id, wf.steps)
+    mgr = ManagerAgent()
+    result = await mgr.run_workflow(workflow_id, wf.steps)
 
     if result.success:
         wf.status = WorkflowStatus.COMPLETED
@@ -185,9 +185,9 @@ async def resume_workflow(workflow_id: str, db: Session = Depends(get_db)):
     wf.status = WorkflowStatus.RUNNING
     db.commit()
 
-    orch = OrchestratorAgent()
+    mgr = ManagerAgent()
     remaining_steps = wf.steps[wf.current_step:]
-    result = await orch.run_workflow(f"{workflow_id}-resume", remaining_steps)
+    result = await mgr.run_workflow(f"{workflow_id}-resume", remaining_steps)
 
     if result.success:
         wf.status = WorkflowStatus.COMPLETED
