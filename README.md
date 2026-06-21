@@ -175,9 +175,26 @@ CAMera is in active development with a working backend and frontend.
 - **Task classifier**: Scores scope/risk/dependencies/architecture/security/research factors → complexity level
 - **API endpoints**: POST /api/v1/workflows/blueprint, POST /api/v1/workflows/classify, GET /api/v1/workflows/categories
 
+### Learning System
+- **Failure Analysis**: Record/categorize failures with severity, root cause (5 Whys), preventive actions
+- **Lessons Learned**: Create/search/promote/supersede lessons with evidence, confidence, and scope (project → project-type → global)
+- **Performance Metrics**: Weighted scoring across 8 categories (correctness, quality, reliability, testing, research, learning, governance, efficiency) with warning/critical thresholds
+- **Improvement Proposals**: Observation → evidence → benefit → risk → manager review → approve/reject
+- **API**: Full CRUD for failures, lessons, metrics, proposals under /api/v1/learning/
+
+### Weighted Memory Retrieval
+- **7-factor scoring**: context match (25%), importance (18%), confidence (15%), outcome quality (15%), frequency (10%), relationship strength (10%), recency (7%)
+- **8 agent profiles**: Manager, Architect, Planner, Coder, Tester, Debugger, Reviewer, Memory — each with weighted tag preferences
+- **9 retrieval modes**: Planning, Architecture, Implementation, Testing, Debugging, Review, Learning, Research, Optimization
+- **Knowledge Package**: Top-N memories, pattern summary, contradictions, knowledge graph, confidence score
+- **Relationship expansion**: Auto-expand to related memories across the graph
+- **Contradiction detection**: Opposite-direction keyword matching + tag overlap analysis
+- **API**: Full retrieval, expansion, profiles under /api/v1/memory-retrieval/
+
 ### Next Priorities
-- Learning system (08_LEARNING/): failure analysis, lesson extraction, pattern discovery
-- Weighted memory retrieval with 7-factor scoring (context, importance, confidence, outcome, frequency, relationships, recency)
+- Frontend pages for new systems (learning dashboard, memory retrieval explorer, workflow builder)
+- Integration testing across all subsystems
+- Agent orchestration tests (Manager running workflows through agents)
 
 ---
 

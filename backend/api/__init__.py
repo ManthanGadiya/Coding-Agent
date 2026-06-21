@@ -8,6 +8,8 @@ from backend.api.projects import router as projects_router
 from backend.api.llm import router as llm_router
 from backend.api.decisions import router as decisions_router
 from backend.api.autonomy import router as autonomy_router
+from backend.api.learning import router as learning_router
+from backend.api.memory_retrieval import router as memory_retrieval_router
 
 router = APIRouter()
 
@@ -19,3 +21,5 @@ router.include_router(projects_router, prefix="/projects", tags=["projects"])
 router.include_router(llm_router, prefix="/llm", tags=["llm"])
 router.include_router(decisions_router, prefix="/decisions", tags=["decisions"])
 router.include_router(autonomy_router, prefix="/autonomy", tags=["autonomy"])
+router.include_router(learning_router, prefix="/learning", tags=["learning"])
+router.include_router(memory_retrieval_router, prefix="/memory-retrieval", tags=["memory-retrieval"])
