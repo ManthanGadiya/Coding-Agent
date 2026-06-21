@@ -9,7 +9,10 @@ const nav = [
   { href: "/projects", label: "Projects", icon: "◈" },
   { href: "/agents", label: "Agents", icon: "◇" },
   { href: "/tasks", label: "Tasks", icon: "☰" },
+  { href: "/workflows", label: "Workflows", icon: "⚙" },
   { href: "/memory", label: "Memory", icon: "◎" },
+  { href: "/memory-retrieval", label: "Retrieval", icon: "⌕" },
+  { href: "/learning", label: "Learning", icon: "△" },
 ];
 
 export function Sidebar() {

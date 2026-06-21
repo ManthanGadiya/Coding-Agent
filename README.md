@@ -191,8 +191,14 @@ CAMera is in active development with a working backend and frontend.
 - **Contradiction detection**: Opposite-direction keyword matching + tag overlap analysis
 - **API**: Full retrieval, expansion, profiles under /api/v1/memory-retrieval/
 
+### Frontend (Next.js 16)
+- **8 pages**: Dashboard, Projects, Agents, Tasks, Workflows, Memory, Memory Retrieval, Learning
+- **Workflows page**: Blueprint generator with step visualization, task classifier, workflow list
+- **Memory Retrieval page**: Agent-aware weighted search with factor scores, contradiction display, agent profiles
+- **Learning page**: Tabs for failures (with 5 Whys analyzer), lessons, metrics timeline, improvement proposals
+- **Sidebar**: Updated with links to all 8 pages
+
 ### Next Priorities
-- Frontend pages for new systems (learning dashboard, memory retrieval explorer, workflow builder)
 - Integration testing across all subsystems
 - Agent orchestration tests (Manager running workflows through agents)
 
