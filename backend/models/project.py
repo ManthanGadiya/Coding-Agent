@@ -34,8 +34,8 @@ class Project(Base, TimestampMixin, UUIDMixin):
     task_count: Mapped[int] = mapped_column(Integer, default=0)
     completed_task_count: Mapped[int] = mapped_column(Integer, default=0)
 
-    last_activity: Mapped[Optional[datetime]] = mapped_column(nullable=True)
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    last_activity: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    extra_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column("metadata", JSON, nullable=True)
 
     __table_args__ = (
         Index("ix_projects_status_owner", "status", "owner_id"),

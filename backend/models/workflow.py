@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text, Enum as SQLEnum, ForeignKey, Index, JSON, Integer
+from sqlalchemy import String, Text, Enum as SQLEnum, ForeignKey, Index, JSON, Integer, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.models.base import Base, TimestampMixin, UUIDMixin
 from enum import Enum
@@ -44,12 +44,12 @@ class Workflow(Base, TimestampMixin, UUIDMixin):
     assigned_agents: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
     completed_agents: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
 
-    started_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    extra_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column("metadata", JSON, nullable=True)
 
     __table_args__ = (
         Index("ix_workflows_project_status", "project_id", "status"),
@@ -71,8 +71,8 @@ class WorkflowStep(Base, TimestampMixin, UUIDMixin):
     output_data: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    started_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         Index("ix_workflow_steps_workflow_step", "workflow_id", "step_number"),

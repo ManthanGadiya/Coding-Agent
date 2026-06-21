@@ -1,8 +1,9 @@
-from sqlalchemy import String, Text, Enum as SQLEnum, ForeignKey, Index, JSON, Integer, Boolean
+from sqlalchemy import String, Text, Enum as SQLEnum, ForeignKey, Index, JSON, Integer, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.models.base import Base, TimestampMixin, UUIDMixin
 from enum import Enum
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 
 
 class AgentType(str, Enum):
@@ -40,12 +41,9 @@ class Agent(Base, TimestampMixin, UUIDMixin):
     tasks_completed: Mapped[int] = mapped_column(Integer, default=0)
     tasks_failed: Mapped[int] = mapped_column(Integer, default=0)
 
-    last_active: Mapped[Optional[datetime]] = mapped_column(nullable=True)
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    last_active: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    extra_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column("metadata", JSON, nullable=True)
 
     __table_args__ = (
         Index("ix_agents_type_status", "agent_type", "status"),
     )
-
-
-from datetime import datetime

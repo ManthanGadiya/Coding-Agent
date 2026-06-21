@@ -69,7 +69,7 @@ class Task(Base, TimestampMixin, UUIDMixin):
 
     result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    extra_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column("metadata", JSON, nullable=True)
 
     __table_args__ = (
         Index("ix_tasks_project_status", "project_id", "status"),
@@ -85,7 +85,7 @@ class TaskLog(Base, TimestampMixin, UUIDMixin):
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     level: Mapped[str] = mapped_column(String(20), default="info")
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    extra_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column("metadata", JSON, nullable=True)
 
     __table_args__ = (
         Index("ix_task_logs_task_id", "task_id"),
