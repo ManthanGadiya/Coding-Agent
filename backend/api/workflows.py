@@ -13,6 +13,7 @@ from backend.core.workflow_engine import (
     evaluate_quality_gate, evaluate_completion_criteria,
     get_workflow_for_complexity, workflow_controller,
 )
+from backend.core.release import release_engine, ReleaseType
 
 router = APIRouter()
 
@@ -391,3 +392,67 @@ def rollback_pipeline(pipeline_id: str):
     if not pipe:
         raise HTTPException(404, "Pipeline not found")
     return {"id": pipe.id, "state": pipe.state.value, "current_step": pipe.current_step}
+
+
+class ReleaseCreateRequest(BaseModel):
+    version: str
+    release_type: str = "patch"
+
+
+@router.post("/release/candidate")
+def create_release_candidate(req: ReleaseCreateRequest):
+    rc = release_engine.create_candidate(req.version, req.release_type)
+    return release_engine.get_candidate(rc.id)
+
+
+@router.post("/release/candidate/{candidate_id}/check")
+def set_release_check(candidate_id: str, check_name: str, passed: bool = True):
+    rc = release_engine.set_check(candidate_id, check_name, passed)
+    if not rc:
+        raise HTTPException(404, "Release candidate not found")
+    return {"checks": rc.checks}
+
+
+@router.post("/release/candidate/{candidate_id}/approve")
+def approve_release(candidate_id: str, approved_by: str = "manager"):
+    rc = release_engine.approve_candidate(candidate_id, approved_by)
+    if not rc:
+        raise HTTPException(404, "Release candidate not found")
+    return release_engine.get_candidate(candidate_id)
+
+
+@router.post("/release/candidate/{candidate_id}/deploy")
+def deploy_release(candidate_id: str):
+    rc = release_engine.deploy(candidate_id)
+    if not rc:
+        raise HTTPException(404, "Release candidate not found")
+    return release_engine.get_candidate(candidate_id)
+
+
+@router.post("/release/candidate/{candidate_id}/rollback")
+def rollback_release(candidate_id: str, reason: str = "manual rollback"):
+    rc = release_engine.rollback(candidate_id, reason)
+    if not rc:
+        raise HTTPException(404, "Release candidate not found")
+    return release_engine.get_candidate(candidate_id)
+
+
+@router.get("/release/candidate/{candidate_id}")
+def get_release_candidate(candidate_id: str):
+    rc = release_engine.get_candidate(candidate_id)
+    if not rc:
+        raise HTTPException(404, "Release candidate not found")
+    return rc
+
+
+@router.get("/release/strategies")
+def list_rollback_strategies():
+    return {"strategies": release_engine.get_strategies()}
+
+
+@router.post("/release/candidate/{candidate_id}/strategy")
+def select_rollback_strategy(candidate_id: str, strategy: str = "full_rollback"):
+    rc = release_engine.select_strategy(candidate_id, strategy)
+    if not rc:
+        raise HTTPException(404, "Release candidate or strategy not found")
+    return release_engine.get_candidate(candidate_id)
