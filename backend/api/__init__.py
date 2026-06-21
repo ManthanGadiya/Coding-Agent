@@ -1,0 +1,17 @@
+from fastapi import APIRouter
+
+from backend.api.tasks import router as tasks_router
+from backend.api.agents import router as agents_router
+from backend.api.memory import router as memory_router
+from backend.api.workflows import router as workflows_router
+from backend.api.projects import router as projects_router
+from backend.api.llm import router as llm_router
+
+router = APIRouter()
+
+router.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
+router.include_router(agents_router, prefix="/agents", tags=["agents"])
+router.include_router(memory_router, prefix="/memory", tags=["memory"])
+router.include_router(workflows_router, prefix="/workflows", tags=["workflows"])
+router.include_router(projects_router, prefix="/projects", tags=["projects"])
+router.include_router(llm_router, prefix="/llm", tags=["llm"])
