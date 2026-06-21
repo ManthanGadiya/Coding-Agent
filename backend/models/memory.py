@@ -24,6 +24,13 @@ class MemoryCategory(str, Enum):
     TECHNOLOGY = "technology"
     BUG = "bug"
     IMPROVEMENT = "improvement"
+    REQUIREMENT = "requirement"
+    DEPENDENCY = "dependency"
+    RESEARCH = "research"
+    OPTIMIZATION = "optimization"
+    TECHNICAL_DEBT = "technical_debt"
+    DISCOVERY = "discovery"
+    MILESTONE = "milestone"
 
 
 class MemoryStatus(str, Enum):

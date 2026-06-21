@@ -173,12 +173,42 @@ def update_memory_entry(entry_id: str, update: dict, db: Session = Depends(get_d
     entry = db.query(MemoryEntry).filter(MemoryEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Memory entry not found")
+    meta = entry.extra_metadata or {}
+    versions = meta.get("versions", [])
+    version_num = len(versions) + 1
+    snapshot = {
+        "version": version_num,
+        "title": entry.title,
+        "content_preview": entry.content[:200] if entry.content else "",
+        "status": entry.status.value,
+        "confidence": entry.confidence.value,
+        "timestamp": datetime.utcnow().isoformat(),
+        "changes": list(update.keys()),
+    }
+    versions.append(snapshot)
+    meta["versions"] = versions
+    meta["current_version"] = version_num
+    entry.extra_metadata = meta
+
     for field, value in update.items():
         if hasattr(entry, field):
             setattr(entry, field, value)
     db.commit()
     db.refresh(entry)
     return entry
+
+
+@router.get("/entries/{entry_id}/versions")
+def get_entry_versions(entry_id: str, db: Session = Depends(get_db)):
+    entry = db.query(MemoryEntry).filter(MemoryEntry.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Memory entry not found")
+    meta = entry.extra_metadata or {}
+    return {
+        "entry_id": entry_id,
+        "current_version": meta.get("current_version", 0),
+        "versions": meta.get("versions", []),
+    }
 
 
 @router.delete("/entries/{entry_id}", status_code=204)
