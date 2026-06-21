@@ -21,7 +21,12 @@ class AgentMessage:
     sender: str
     receiver: str
     content: str
+    objective: str = ""
+    evidence: str = ""
+    recommendation: str = ""
+    next_action: str = ""
     message_type: str = "info"
+    confidence: float = 0.0
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=datetime.utcnow)
     message_id: str = field(default_factory=lambda: str(uuid.uuid4()))
