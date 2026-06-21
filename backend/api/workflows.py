@@ -9,9 +9,9 @@ from backend.models.workflow import Workflow, WorkflowStatus, WorkflowType, Work
 from backend.agents.manager import ManagerAgent
 from backend.core.workflow_engine import (
     get_workflow_blueprint, classify_task, ComplexityLevel, WorkflowCategory,
-    WORKFLOW_BUILDERS, WorkflowBlueprint,
+    WORKFLOW_BUILDERS, WorkflowBlueprint, PipelineState,
     evaluate_quality_gate, evaluate_completion_criteria,
-    get_workflow_for_complexity,
+    get_workflow_for_complexity, workflow_controller,
 )
 
 router = APIRouter()
@@ -308,3 +308,86 @@ def delete_workflow(workflow_id: str, db: Session = Depends(get_db)):
     db.query(WorkflowStep).filter(WorkflowStep.workflow_id == workflow_id).delete()
     db.delete(wf)
     db.commit()
+
+
+class PipelineCreateRequest(BaseModel):
+    category: str
+    complexity: str = "moderate"
+    severity: Optional[str] = None
+    impact: Optional[str] = None
+    release_type: Optional[str] = None
+
+
+@router.post("/pipeline")
+def create_pipeline(req: PipelineCreateRequest):
+    kwargs = {}
+    if req.severity: kwargs["severity"] = req.severity
+    if req.impact: kwargs["impact"] = req.impact
+    if req.release_type: kwargs["release_type"] = req.release_type
+    if req.complexity not in [c.value for c in ComplexityLevel]:
+        raise HTTPException(400, f"Invalid complexity: {req.complexity}")
+    smallest = workflow_controller.enforce_smallest_workflow(req.category, ComplexityLevel(req.complexity))
+    pipe = workflow_controller.create_pipeline(smallest, req.complexity, **kwargs)
+    return {
+        "id": pipe.id, "category": pipe.category, "complexity": pipe.complexity.value,
+        "state": pipe.state.value, "steps": pipe.steps,
+        "enforced_workflow": smallest,
+    }
+
+
+class StepTransitionRequest(BaseModel):
+    status: str = "completed"
+    output: Dict[str, Any] = {}
+    error: Optional[str] = None
+
+
+@router.post("/pipeline/{pipeline_id}/transition")
+def transition_pipeline(pipeline_id: str, req: StepTransitionRequest):
+    result = {"status": req.status, "output": req.output}
+    if req.error:
+        result["error"] = req.error
+    pipe = workflow_controller.transition(pipeline_id, result)
+    if not pipe:
+        raise HTTPException(404, "Pipeline not found")
+    return {
+        "id": pipe.id, "current_step": pipe.current_step,
+        "total_steps": len(pipe.steps), "state": pipe.state.value,
+        "errors": pipe.errors,
+    }
+
+
+@router.get("/pipeline/{pipeline_id}")
+def get_pipeline(pipeline_id: str):
+    pipe = workflow_controller.get_status(pipeline_id)
+    if not pipe:
+        raise HTTPException(404, "Pipeline not found")
+    return {
+        "id": pipe.id, "category": pipe.category, "complexity": pipe.complexity.value,
+        "state": pipe.state.value, "current_step": pipe.current_step,
+        "total_steps": len(pipe.steps), "steps": pipe.steps,
+        "results": pipe.results, "errors": pipe.errors,
+    }
+
+
+@router.get("/pipeline/list/active")
+def list_active_pipelines():
+    pipes = workflow_controller.list_active()
+    return {"pipelines": [{"id": p.id, "category": p.category, "state": p.state.value,
+                            "current_step": p.current_step, "total_steps": len(p.steps)}
+                           for p in pipes], "count": len(pipes)}
+
+
+@router.post("/pipeline/{pipeline_id}/unblock")
+def unblock_pipeline(pipeline_id: str):
+    pipe = workflow_controller.unblock(pipeline_id)
+    if not pipe:
+        raise HTTPException(404, "Pipeline not found")
+    return {"id": pipe.id, "state": pipe.state.value}
+
+
+@router.post("/pipeline/{pipeline_id}/rollback")
+def rollback_pipeline(pipeline_id: str):
+    pipe = workflow_controller.rollback(pipeline_id)
+    if not pipe:
+        raise HTTPException(404, "Pipeline not found")
+    return {"id": pipe.id, "state": pipe.state.value, "current_step": pipe.current_step}

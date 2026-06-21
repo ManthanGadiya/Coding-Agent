@@ -340,6 +340,124 @@ def get_workflow_for_complexity(complexity: ComplexityLevel) -> str:
     return mapping.get(complexity, "task_pipeline")
 
 
+class PipelineState(str, Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    BLOCKED = "blocked"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    ROLLED_BACK = "rolled_back"
+
+
+@dataclass
+class PipelineModel:
+    id: str
+    category: str
+    complexity: ComplexityLevel
+    steps: List[Dict]
+    current_step: int = 0
+    state: PipelineState = PipelineState.PENDING
+    results: Dict[str, Any] = field(default_factory=dict)
+    errors: List[str] = field(default_factory=list)
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class WorkflowController:
+    def __init__(self):
+        self.pipelines: Dict[str, PipelineModel] = {}
+
+    def _next_id(self) -> str:
+        return f"pipe-{len(self.pipelines) + 1:04d}"
+
+    def create_pipeline(self, category: str, complexity: str = "moderate", **kwargs) -> PipelineModel:
+        blueprint = get_workflow_blueprint(category, complexity, **kwargs)
+        if not blueprint:
+            raise ValueError(f"Unknown workflow category: {category}")
+        now = datetime.utcnow().isoformat()
+        pipe = PipelineModel(
+            id=self._next_id(),
+            category=category,
+            complexity=blueprint.complexity,
+            steps=[{"name": s.name, "agent": s.agent, "description": s.description,
+                     "state": "pending", "result": None} for s in blueprint.steps],
+            state=PipelineState.PENDING,
+            created_at=now,
+            updated_at=now,
+        )
+        self.pipelines[pipe.id] = pipe
+        return pipe
+
+    def transition(self, pipeline_id: str, step_result: Dict) -> Optional[PipelineModel]:
+        pipe = self.pipelines.get(pipeline_id)
+        if not pipe:
+            return None
+        if pipe.state in (PipelineState.COMPLETED, PipelineState.FAILED, PipelineState.ROLLED_BACK):
+            return pipe
+        if pipe.current_step >= len(pipe.steps):
+            pipe.state = PipelineState.COMPLETED
+            pipe.updated_at = datetime.utcnow().isoformat()
+            return pipe
+
+        step = pipe.steps[pipe.current_step]
+        step["state"] = step_result.get("status", "completed")
+        step["result"] = step_result.get("output", {})
+
+        if step_result.get("status") == "blocked":
+            pipe.state = PipelineState.BLOCKED
+            pipe.updated_at = datetime.utcnow().isoformat()
+            return pipe
+        if step_result.get("status") == "failed":
+            pipe.state = PipelineState.FAILED
+            pipe.errors.append(f"Step {step['name']}: {step_result.get('error', 'unknown')}")
+            pipe.updated_at = datetime.utcnow().isoformat()
+            return pipe
+
+        pipe.results[step["name"]] = step_result.get("output", {})
+        pipe.current_step += 1
+        pipe.updated_at = datetime.utcnow().isoformat()
+
+        if pipe.current_step >= len(pipe.steps):
+            pipe.state = PipelineState.COMPLETED
+        return pipe
+
+    def get_status(self, pipeline_id: str) -> Optional[PipelineModel]:
+        return self.pipelines.get(pipeline_id)
+
+    def enforce_smallest_workflow(self, category: str, complexity: ComplexityLevel) -> str:
+        mapping = {
+            ComplexityLevel.SIMPLE: "task_pipeline",
+            ComplexityLevel.MODERATE: category if category in WORKFLOW_BUILDERS else "sdlc",
+            ComplexityLevel.COMPLEX: category if category in WORKFLOW_BUILDERS else "sdlc",
+            ComplexityLevel.CRITICAL: category if category in WORKFLOW_BUILDERS else "sdlc",
+        }
+        return mapping.get(complexity, "task_pipeline")
+
+    def unblock(self, pipeline_id: str) -> Optional[PipelineModel]:
+        pipe = self.pipelines.get(pipeline_id)
+        if not pipe or pipe.state != PipelineState.BLOCKED:
+            return pipe
+        pipe.state = PipelineState.IN_PROGRESS
+        pipe.updated_at = datetime.utcnow().isoformat()
+        return pipe
+
+    def rollback(self, pipeline_id: str) -> Optional[PipelineModel]:
+        pipe = self.pipelines.get(pipeline_id)
+        if not pipe:
+            return None
+        pipe.state = PipelineState.ROLLED_BACK
+        pipe.current_step = max(0, pipe.current_step - 1)
+        pipe.updated_at = datetime.utcnow().isoformat()
+        return pipe
+
+    def list_active(self) -> List[PipelineModel]:
+        return [p for p in self.pipelines.values()
+                if p.state in (PipelineState.PENDING, PipelineState.IN_PROGRESS, PipelineState.BLOCKED)]
+
+
+workflow_controller = WorkflowController()
+
+
 def classify_task(scope: str, risk: str, dependencies: int, architecture_impact: bool,
                   security_impact: bool, research_needed: bool) -> ComplexityLevel:
     score = 0
