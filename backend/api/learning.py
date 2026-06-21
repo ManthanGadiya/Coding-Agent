@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from backend.core.learning import LearningSystem
+from backend.core.knowledge import knowledge_engine, ArtifactStatus
 
 router = APIRouter()
 system = LearningSystem()
@@ -139,3 +140,48 @@ def review_proposal(proposal_id: str, req: ReviewRequest):
 @router.post("/five-whys")
 def five_whys(req: FiveWhysRequest):
     return system.five_whys(req.problem)
+
+
+class ObservationRequest(BaseModel):
+    title: str
+    content: str
+    tags: List[str] = []
+
+
+@router.post("/knowledge/observe")
+def record_observation(req: ObservationRequest):
+    obs = knowledge_engine.record_observation(req.title, req.content, req.tags)
+    return obs.__dict__
+
+
+@router.post("/knowledge/promote")
+def promote_from_patterns(patterns: List[Dict[str, Any]]):
+    results = knowledge_engine.promote_from_patterns(patterns)
+    return {"promoted": [r.__dict__ for r in results], "count": len(results)}
+
+
+@router.get("/knowledge/artifacts")
+def list_artifacts(status: Optional[str] = None):
+    return {"artifacts": knowledge_engine.get_artifacts(status)}
+
+
+@router.get("/knowledge/rules/pending")
+def list_pending_rules():
+    return {"rules": knowledge_engine.get_candidate_rules("pending")}
+
+
+@router.get("/knowledge/rules/approved")
+def list_approved_rules():
+    return {"rules": knowledge_engine.get_approved_rules()}
+
+
+class ReviewRuleRequest(BaseModel):
+    approve: bool
+
+
+@router.post("/knowledge/rules/{rule_id}/review")
+def review_rule(rule_id: str, req: ReviewRuleRequest):
+    result = knowledge_engine.review_rule(rule_id, req.approve)
+    if not result:
+        raise HTTPException(404, "Rule not found")
+    return result
