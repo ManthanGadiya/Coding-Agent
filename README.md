@@ -147,11 +147,15 @@ Human oversight remains essential for strategic decisions, governance changes, a
 CAMera is in active development with a working backend and frontend.
 
 ### Backend (FastAPI)
-- **52 API routes** across projects, tasks, agents, memory, workflows, and LLM
-- **7 agents**: Orchestrator, Coder, Reviewer, Tester, Memory, Debugger (+ LLM-based Architect & Planner planned)
+- **60+ API routes** across projects, tasks, agents, memory, workflows, LLM, decisions, and autonomy
+- **8 agents**: Manager (central coordinator), Architect, Planner, Coder, Reviewer, Tester, Debugger, Memory Agent
+- **Decision Engine**: 8-step evidence-based decision workflow (Understand → Gather → Inform → Constraints → Options → Evaluate → Validate → Execute) with confidence scoring (high/medium/low), risk assessment, and escalation
+- **Autonomy System**: 3 modes (Plan/Agent/Full Autonomous), 35+ capabilities with risk levels, 4-tier approval classes (None/Session/Project/Explicit), role-based permissions for all 7 agent roles, audit trail
 - **Model Router**: Local-first LLM routing (Ollama) with cloud fallback (OpenAI/Anthropic)
 - **MCP clients**: Firecrawl, GitHub, Agent Memory, MarkItDown
-- **Tools layer**: FileTool, CommandTool with permission validation
+- **Tools layer**: FileTool, CommandTool, BrowserTool, GitTool, DatabaseTool, DockerTool with permission/risk validation
+- **TOON serialization**: Recursive-descent TOON parser for compact internal memory representation
+- **Database**: SQLAlchemy + SQLite with auto-seeding (all 8 agents created at startup)
 
 ### Frontend (Next.js 16)
 - **5 pages**: Dashboard, Projects, Agents, Tasks, Memory
@@ -165,11 +169,9 @@ CAMera is in active development with a working backend and frontend.
 - API proxy configured in `frontend/next.config.ts`
 
 ### Next Priorities
-- Convert static pages to live data-fetching components
-- Architect & Planner agent implementations
-- MCP server implementations for external services
-- TOON memory serialization
-- Learning system (failure analysis, lessons)
+- Workflow engine as code (SDLC, feature dev, bug fix, refactor, release, task pipeline per 05_WORKFLOWS/)
+- Learning system (08_LEARNING/): failure analysis, lesson extraction, pattern discovery
+- Weighted memory retrieval with 7-factor scoring (context, importance, confidence, outcome, frequency, relationships, recency)
 
 ---
 
