@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: camera
+Version: 1.0.0
+Summary: Cognitive Autonomous Multi-Agent Engineering Reasoning Assistant
+Requires-Python: >=3.11
+Requires-Dist: fastapi>=0.115
+Requires-Dist: uvicorn[standard]>=0.30
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: pydantic>=2.0
+Requires-Dist: pydantic-settings>=2.0

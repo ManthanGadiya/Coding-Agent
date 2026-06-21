@@ -1,0 +1,9 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "agent"
+  ],
+  "timeout": 600000,
+  "requestTimeout": 600
+
+}
