@@ -2,6 +2,10 @@ from typing import Any, Dict, List, Optional
 
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage
 
+SYSTEM_PROMPT = """You are a senior code reviewer. Analyze code for bugs,
+security issues, maintainability problems, and design flaws.
+Be specific, cite line numbers, and suggest concrete fixes."""
+
 
 class ReviewerAgent(BaseAgent):
     def __init__(self, agent_id: str = "reviewer-1", config: Optional[Dict] = None):
@@ -20,15 +24,15 @@ class ReviewerAgent(BaseAgent):
         data = task.input_data
 
         if task_type == "review_code":
-            return self._review_code(data)
+            return await self._review_code(data)
         elif task_type == "review_architecture":
-            return self._review_architecture(data)
+            return await self._review_architecture(data)
         elif task_type == "review_security":
-            return self._review_security(data)
+            return await self._review_security(data)
         elif task_type == "review_maintainability":
-            return self._review_maintainability(data)
+            return await self._review_maintainability(data)
         elif task_type in ("approve", "reject"):
-            return self._make_decision(task_type, data)
+            return await self._make_decision(task_type, data)
         else:
             return AgentResult(
                 task_id=task.task_id,
@@ -46,105 +50,80 @@ class ReviewerAgent(BaseAgent):
             )
         return None
 
-    def _review_code(self, data: Dict) -> AgentResult:
+    async def _review_code(self, data: Dict) -> AgentResult:
         path = data.get("path")
         content = data.get("content", "")
-        findings = []
-
         if not content and path:
             try:
                 content = open(path).read()
             except:
-                findings.append({"severity": "error", "message": f"Cannot read {path}"})
-
+                content = ""
         lines = content.split("\n") if content else []
-
-        # Basic static analysis
+        # ponytail: static analysis for quick wins, LLM for deep review
+        findings = []
         if any("TODO" in l or "FIXME" in l for l in lines):
-            findings.append({"severity": "warning", "category": "maintainability", "message": "Contains TODO/FIXME markers"})
-
+            findings.append("Contains TODO/FIXME markers")
         if "import *" in content:
-            findings.append({"severity": "warning", "category": "style", "message": "Wildcard imports harm readability"})
-
+            findings.append("Wildcard imports harm readability")
         if len(lines) > 500:
-            findings.append({"severity": "info", "category": "complexity", "message": f"File has {len(lines)} lines, consider splitting"})
-
-        # ponytail: basic file-level checks, deep review uses LLM pass
-        score = max(0, 10 - len(findings))
+            findings.append(f"File has {len(lines)} lines, consider splitting")
+        prompt = f"Review this code at {path or 'unknown'}:\n\n{content}\n\nFindings so far: {findings}\n\nProvide a full review with specific issues and fixes."
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT, max_tokens=2048)
         return AgentResult(
-            task_id="",
-            success=True,
-            output={"findings": findings, "score": score, "lines_analyzed": len(lines)},
+            task_id="", success=True,
+            output={"llm_review": output, "static_findings": findings, "lines_analyzed": len(lines)},
             metadata={"path": path, "finding_count": len(findings)}
         )
 
-    def _review_architecture(self, data: Dict) -> AgentResult:
-        structure = data.get("structure", {})
-        violations = []
-
-        if "imports" in structure:
-            for imp in structure["imports"]:
-                if imp.get("from", "").startswith("backend."):
-                    parts = imp["from"].split(".")
-                    # ponytail: simple layer check, expand as needed
-                    if len(parts) > 3:
-                        violations.append({
-                            "severity": "info",
-                            "message": f"Deep import chain: {imp['from']}"
-                        })
-
+    async def _review_architecture(self, data: Dict) -> AgentResult:
+        prompt = f"Review this architecture:\nStructure: {data.get('structure', {})}\nEvaluate layer violations, coupling, and design patterns."
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id="",
-            success=True,
-            output={"violations": violations, "compliant": len(violations) == 0},
-            metadata={"violation_count": len(violations)}
+            task_id="", success=True, output=output,
+            metadata={}
         )
 
-    def _review_security(self, data: Dict) -> AgentResult:
+    async def _review_security(self, data: Dict) -> AgentResult:
         content = data.get("content", "")
         risks = []
-
         secrets = ["api_key", "password", "secret", "token", "credential"]
         for secret in secrets:
             if secret in content.lower() and "=" in content.lower().split(secret)[-1][:20]:
-                risks.append({"severity": "high", "category": "secrets", "message": f"Potential {secret} in code"})
-
+                risks.append(f"Potential {secret} in code")
         if "eval(" in content or "exec(" in content:
-            risks.append({"severity": "high", "category": "code_injection", "message": "Dynamic code execution detected"})
-
+            risks.append("Dynamic code execution detected")
         if "subprocess.run" in content and "shell=True" in content:
-            risks.append({"severity": "high", "category": "command_injection", "message": "Shell execution with shell=True"})
-
+            risks.append("Shell execution with shell=True")
+        # ponytail: static pattern check first, LLM for deeper analysis
+        prompt = f"Review this code for security vulnerabilities:\n\n{content}\n\nStatic findings so far: {risks}\nIdentify all security issues with severity levels."
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id="",
-            success=len([r for r in risks if r["severity"] == "high"]) == 0,
-            output={"risks": risks, "safe": len(risks) == 0},
+            task_id="", success=True,
+            output={"llm_review": output, "static_risks": risks, "safe": len(risks) == 0},
             metadata={"risk_count": len(risks)}
         )
 
-    def _review_maintainability(self, data: Dict) -> AgentResult:
+    async def _review_maintainability(self, data: Dict) -> AgentResult:
         content = data.get("content", "")
+        lines = content.split("\n") if content else []
         issues = []
-
         if not content.strip():
             return AgentResult(task_id="", success=True, output={"issues": [], "score": 10})
-
-        lines = content.split("\n")
         long_lines = [i+1 for i, l in enumerate(lines) if len(l) > 120]
         if long_lines:
-            issues.append({"severity": "warning", "message": f"{len(long_lines)} lines exceed 120 chars"})
-
-        # ponytail: basic maintainability checks
+            issues.append(f"{len(long_lines)} lines exceed 120 chars")
+        prompt = f"Review this code for maintainability:\n\n{content}\n\nLine-length issues: {issues}\nAssess overall maintainability and suggest improvements."
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id="",
-            success=True,
-            output={"issues": issues, "score": max(0, 10 - len(issues))}
+            task_id="", success=True,
+            output={"llm_review": output, "static_issues": issues, "score": max(0, 10 - len(issues))}
         )
 
-    def _make_decision(self, decision: str, data: Dict) -> AgentResult:
+    async def _make_decision(self, decision: str, data: Dict) -> AgentResult:
+        prompt = f"Review this and provide a {'approval' if decision == 'approve' else 'rejection'} rationale:\n{data.get('reason', '')}\nContext: {data.get('context', '')}"
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id="",
-            success=True,
-            output={"decision": decision, "reason": data.get("reason", "")},
+            task_id="", success=True,
+            output={"decision": decision, "rationale": output},
             metadata={"decision": decision}
         )

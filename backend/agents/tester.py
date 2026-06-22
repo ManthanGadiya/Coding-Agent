@@ -5,6 +5,10 @@ from typing import Any, Dict, List, Optional
 
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage
 
+SYSTEM_PROMPT = """You are a senior QA engineer. Write thorough tests
+covering edge cases, error states, and normal flows.
+Output only test code and a brief explanation of coverage."""
+
 
 class TesterAgent(BaseAgent):
     def __init__(self, agent_id: str = "tester-1", config: Optional[Dict] = None):
@@ -23,7 +27,7 @@ class TesterAgent(BaseAgent):
         data = task.input_data
 
         if task_type == "write_test":
-            return self._write_test(data)
+            return await self._write_test(data)
         elif task_type == "run_test":
             return self._run_test(data)
         elif task_type == "run_test_suite":
@@ -49,25 +53,23 @@ class TesterAgent(BaseAgent):
             )
         return None
 
-    def _write_test(self, data: Dict) -> AgentResult:
+    async def _write_test(self, data: Dict) -> AgentResult:
         target = data.get("target", "")
         framework = data.get("framework", "pytest")
-        content = data.get("content", "")
-
-        if not content:
-            # ponytail: generate minimal test stub
-            content = f"""\
-def test_{Path(target).stem}():
-    assert True
-"""
         path = data.get("path", f"tests/test_{Path(target).stem}.py")
+        source_content = data.get("source", "")
+        if not source_content and target:
+            try:
+                source_content = Path(target).read_text()
+            except:
+                pass
+        prompt = f"Write {framework} tests for:\n\n{source_content}\n\nCover normal cases, edge cases, and error conditions. Output only the test code."
+        content = await self._llm_generate(prompt, SYSTEM_PROMPT, max_tokens=2048)
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         Path(path).write_text(content)
-
         return AgentResult(
-            task_id="",
-            success=True,
-            output=f"Test written to {path}",
+            task_id="", success=True,
+            output=f"Tests written to {path}\n\n{content}",
             metadata={"framework": framework, "path": path}
         )
 
@@ -88,11 +90,9 @@ def test_{Path(target).stem}():
         input_data = data.get("input")
         expected = data.get("expected")
         actual = data.get("actual")
-
         passed = expected == actual
         return AgentResult(
-            task_id="",
-            success=passed,
+            task_id="", success=passed,
             output={"passed": passed, "expected": expected, "actual": actual},
             metadata={"validation_type": data.get("type", "equality")}
         )

@@ -6,6 +6,10 @@ from typing import Any, Dict, List, Optional
 
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage
 
+SYSTEM_PROMPT = """You are an expert software engineer implementing code.
+Given a specification, write clean, correct, maintainable code.
+Explain your approach briefly, then output the implementation."""
+
 
 class CoderAgent(BaseAgent):
     def __init__(self, agent_id: str = "coder-1", config: Optional[Dict] = None):
@@ -34,7 +38,7 @@ class CoderAgent(BaseAgent):
         elif task_type == "fix":
             return await self._fix(data)
         elif task_type == "run_build":
-            return await self._run_build(data)
+            return self._run_build(data)
         elif task_type == "run_test":
             return self._run_command("pytest", data)
         elif task_type == "run_lint":
@@ -82,22 +86,24 @@ class CoderAgent(BaseAgent):
 
     async def _implement(self, task: AgentTask) -> AgentResult:
         spec = task.input_data.get("spec", task.description)
-        # ponytail: simple file-based implementation, use LLM when available
+        prompt = f"Implement the following specification:\n\n{spec}\n\nOutput only the code and a brief explanation."
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT, max_tokens=2048)
         return AgentResult(
-            task_id=task.task_id,
-            success=True,
-            output=f"Implementation stub for: {spec[:100]}",
-            metadata={"spec_snippet": spec[:200], "task_type": "implementation_stub"}
+            task_id=task.task_id, success=True, output=output,
+            metadata={"spec_snippet": spec[:200], "task_type": "implementation"}
         )
 
     async def _refactor(self, data: Dict) -> AgentResult:
         path = data.get("path")
         if not path:
             return AgentResult(task_id="", success=False, error="path required")
+        content = ""
+        if Path(path).exists():
+            content = Path(path).read_text()
+        prompt = f"Refactor this code at {path}:\n\n{content}\n\nSuggest specific improvements."
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id="",
-            success=True,
-            output=f"Refactoring analysis for {path}",
+            task_id="", success=True, output=output,
             metadata={"target": path}
         )
 
@@ -106,14 +112,17 @@ class CoderAgent(BaseAgent):
         issue = data.get("issue", "unknown")
         if not path:
             return AgentResult(task_id="", success=False, error="path required")
+        content = ""
+        if Path(path).exists():
+            content = Path(path).read_text()
+        prompt = f"Bug: {issue}\n\nCode at {path}:\n\n{content}\n\nDiagnose the issue and provide a fix."
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id="",
-            success=True,
-            output=f"Fix analysis for {path}: {issue}",
+            task_id="", success=True, output=output,
             metadata={"target": path, "issue": issue}
         )
 
-    async def _run_build(self, data: Dict) -> AgentResult:
+    def _run_build(self, data: Dict) -> AgentResult:
         cmd = data.get("build_cmd", "python -m build")
         return self._run_command(cmd, data)
 
