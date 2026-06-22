@@ -48,7 +48,7 @@ class ProjectResponse(BaseModel):
     settings: Optional[dict]
     task_count: int
     completed_task_count: int
-    last_activity: Optional[str]
+    last_activity: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
