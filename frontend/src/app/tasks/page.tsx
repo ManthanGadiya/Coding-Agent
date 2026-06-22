@@ -52,10 +52,7 @@ export default function Tasks() {
 
   async function toggleStatus(t: any) {
     const newStatus = t.status === "completed" ? "pending" : "completed";
-    await fetch(`/api/v1/tasks/${t.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
-    });
+    await api.tasks.update(t.id, { status: newStatus }).catch(() => {});
     loadTasks();
   }
 
