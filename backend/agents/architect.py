@@ -1,6 +1,10 @@
 from typing import Any, Dict, List, Optional
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage
 
+SYSTEM_PROMPT = """You are a senior software architect. Given requirements and context,
+produce architecture designs, technology recommendations, tradeoff analyses,
+risk assessments, and scalability evaluations. Be specific and practical."""
+
 
 class ArchitectAgent(BaseAgent):
     def __init__(self, agent_id: str = "architect-1", config: Optional[Dict] = None):
@@ -18,17 +22,17 @@ class ArchitectAgent(BaseAgent):
     async def process_task(self, task: AgentTask) -> AgentResult:
         t = task.task_type
         if t == "architecture_design":
-            return self._design_architecture(task.input_data)
+            return await self._design_architecture(task.input_data)
         elif t == "technology_selection":
-            return self._select_technology(task.input_data)
+            return await self._select_technology(task.input_data)
         elif t == "tradeoff_analysis":
-            return self._analyze_tradeoffs(task.input_data)
+            return await self._analyze_tradeoffs(task.input_data)
         elif t == "risk_assessment":
-            return self._assess_risks(task.input_data)
+            return await self._assess_risks(task.input_data)
         elif t == "scalability_evaluation":
-            return self._evaluate_scalability(task.input_data)
+            return await self._evaluate_scalability(task.input_data)
         elif t == "architecture_review":
-            return self._review_architecture(task.input_data)
+            return await self._review_architecture(task.input_data)
         else:
             return AgentResult(
                 task_id=task.task_id, success=False,
@@ -42,106 +46,47 @@ class ArchitectAgent(BaseAgent):
             message_type="response"
         )
 
-    def _design_architecture(self, data: Dict) -> AgentResult:
-        requirements = data.get("requirements", "")
-        constraints = data.get("constraints", [])
-        tech_stack = data.get("tech_stack", [])
-
-        components = []
-        if "api" in requirements.lower() or "web" in requirements.lower():
-            components.append("api_gateway")
-            components.append("web_server")
-        if "database" in requirements.lower() or "store" in requirements.lower():
-            components.append("database_layer")
-        if "auth" in requirements.lower() or "user" in requirements.lower():
-            components.append("auth_service")
-
+    async def _design_architecture(self, data: Dict) -> AgentResult:
+        prompt = f"Design an architecture for:\nRequirements: {data.get('requirements', '')}\nConstraints: {data.get('constraints', [])}\nTech stack options: {data.get('tech_stack', [])}\n\nProvide components, patterns, and rationale."
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT, max_tokens=2048)
         return AgentResult(
-            task_id=data.get("task_id", ""), success=True,
-            output={
-                "architecture": {
-                    "pattern": "modular_monolith" if len(components) < 5 else "microservices",
-                    "components": components,
-                    "tech_stack": tech_stack or ["fastapi", "sqlalchemy", "nextjs"],
-                    "recommendations": ["Use modular monolith by default, extract services when justified"],
-                },
-                "tradeoffs": [
-                    {"decision": "monolith_vs_microservices", "rationale": "Modular monolith reduces complexity until scale demands splitting"},
-                ],
-                "risks": [
-                    {"risk": "Tech stack lock-in", "likelihood": 0.3, "impact": 0.5},
-                ],
-            },
-            metadata={"component_count": len(components), "requirements_analyzed": bool(requirements)}
+            task_id=data.get("task_id", ""), success=True, output=output,
+            metadata={"requirements_analyzed": bool(data.get("requirements"))}
         )
 
-    def _select_technology(self, data: Dict) -> AgentResult:
-        options = data.get("options", [])
-        criteria = data.get("criteria", ["maintainability", "performance", "community"])
-
+    async def _select_technology(self, data: Dict) -> AgentResult:
+        prompt = f"Select the best technology from these options: {data.get('options', [])}\nCriteria: {data.get('criteria', ['maintainability', 'performance', 'community'])}\nProject context: {data.get('context', '')}"
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id=data.get("task_id", ""), success=True,
-            output={
-                "recommendation": options[0] if options else "Use proven technologies over novel ones",
-                "evaluation": {c: 0.8 for c in criteria},
-                "rationale": "Prefer technologies with strong community, good DX, and proven reliability",
-            },
-            metadata={"options_evaluated": len(options)}
+            task_id=data.get("task_id", ""), success=True, output=output,
+            metadata={"options_evaluated": len(data.get("options", []))}
         )
 
-    def _analyze_tradeoffs(self, data: Dict) -> AgentResult:
-        decisions = data.get("decisions", [])
+    async def _analyze_tradeoffs(self, data: Dict) -> AgentResult:
+        prompt = f"Analyze tradeoffs for these architecture decisions: {data.get('decisions', [])}\nContext: {data.get('context', '')}"
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id=data.get("task_id", ""), success=True,
-            output={
-                "analysis": [
-                    {
-                        "decision": d,
-                        "benefits": ["maintainability", "scalability"],
-                        "costs": ["complexity", "learning curve"],
-                        "recommendation": "proceed" if i % 2 == 0 else "reconsider"
-                    }
-                    for i, d in enumerate(decisions)
-                ] if decisions else [{"message": "No decisions to analyze"}]
-            },
-            metadata={"decisions_analyzed": len(decisions)}
+            task_id=data.get("task_id", ""), success=True, output=output,
+            metadata={"decisions_analyzed": len(data.get("decisions", []))}
         )
 
-    def _assess_risks(self, data: Dict) -> AgentResult:
-        architecture = data.get("architecture", "")
-        components = data.get("components", [])
-        risks = []
-        if not architecture:
-            risks.append({"risk": "No architecture defined", "severity": "high", "mitigation": "Define architecture before implementation"})
-        if len(components) > 7:
-            risks.append({"risk": "High component count increases coordination complexity", "severity": "medium", "mitigation": "Consider merging related components"})
-
+    async def _assess_risks(self, data: Dict) -> AgentResult:
+        prompt = f"Assess risks for this architecture:\nArchitecture: {data.get('architecture', '')}\nComponents: {data.get('components', [])}\nTech stack: {data.get('tech_stack', [])}"
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id=data.get("task_id", ""), success=True,
-            output={
-                "risks": risks or [{"risk": "No significant risks identified", "severity": "low"}],
-                "overall_risk": "low" if not risks else "medium",
-            }
+            task_id=data.get("task_id", ""), success=True, output=output
         )
 
-    def _evaluate_scalability(self, data: Dict) -> AgentResult:
-        components = data.get("components", [])
+    async def _evaluate_scalability(self, data: Dict) -> AgentResult:
+        prompt = f"Evaluate scalability for:\nComponents: {data.get('components', [])}\nExpected load: {data.get('expected_load', '')}\nConstraints: {data.get('constraints', [])}"
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id=data.get("task_id", ""), success=True,
-            output={
-                "scalability": "modular_monolith_sufficient" if len(components) < 5 else "microservices_recommended",
-                "bottlenecks": ["database" if "database" in components else "none identified"],
-                "recommendations": ["Add caching layer", "Use connection pooling", "Horizontal scaling when traffic grows"],
-            }
+            task_id=data.get("task_id", ""), success=True, output=output
         )
 
-    def _review_architecture(self, data: Dict) -> AgentResult:
-        proposal = data.get("proposal", {})
+    async def _review_architecture(self, data: Dict) -> AgentResult:
+        prompt = f"Review this architecture proposal:\n{data.get('proposal', {})}\nProvide findings and recommendations."
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT)
         return AgentResult(
-            task_id=data.get("task_id", ""), success=True,
-            output={
-                "status": "approved" if proposal else "needs_definition",
-                "findings": [],
-                "recommendations": ["Ensure each component has single responsibility", "Document all interfaces"],
-            }
+            task_id=data.get("task_id", ""), success=True, output=output
         )

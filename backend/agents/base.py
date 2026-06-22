@@ -6,6 +6,9 @@ import asyncio
 import uuid
 from datetime import datetime
 
+from backend.core.model_router import get_model_router
+from backend.models.llm import LLMRequest
+
 
 class AgentState(str, Enum):
     IDLE = "idle"
@@ -71,6 +74,14 @@ class BaseAgent(ABC):
         self.message_queue: asyncio.Queue = asyncio.Queue()
         self._running = False
         self._task_history: List[AgentResult] = []
+
+    async def _llm_generate(self, prompt: str, system_prompt: str = "", max_tokens: int = 1024) -> str:
+        router = get_model_router()
+        resp = await router.generate(LLMRequest(
+            prompt=prompt, system_prompt=system_prompt,
+            task_type=self.agent_id, max_tokens=max_tokens,
+        ))
+        return resp.content
 
     @abstractmethod
     async def process_task(self, task: AgentTask) -> AgentResult:
