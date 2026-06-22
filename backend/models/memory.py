@@ -104,6 +104,8 @@ class MemoryEntry(Base, TimestampMixin, UUIDMixin):
     tags: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     related_entries: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     extra_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column("metadata", JSON, nullable=True)
+    usage_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_accessed: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         Index("ix_memory_entries_scope_project_category", "scope", "project_id", "category"),
