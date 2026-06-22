@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, TaskResponse } from "@/lib/api";
 
 const badge = (s: string) => {
   const m: Record<string, string> = {
@@ -30,7 +30,7 @@ const typeBadge = (t: string) => {
 };
 
 export default function Tasks() {
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -44,13 +44,13 @@ export default function Tasks() {
     setLoading(true);
     try {
       const params = filter ? `status=${filter}` : "";
-      const d: any = await api.tasks.list(params);
+      const d = await api.tasks.list(params);
       setTasks(Array.isArray(d) ? d : d.tasks ?? []);
     } catch { setTasks([]); }
     finally { setLoading(false); }
   }
 
-  async function toggleStatus(t: any) {
+  async function toggleStatus(t: TaskResponse) {
     const newStatus = t.status === "completed" ? "pending" : "completed";
     await api.tasks.update(t.id, { status: newStatus }).catch(() => {});
     loadTasks();
@@ -110,7 +110,7 @@ export default function Tasks() {
         <div className="text-center text-muted text-sm py-12">No tasks found</div>
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
-          {tasks.map((t: any) => (
+          {tasks.map((t) => (
             <div key={t.id} className="flex items-center gap-4 px-5 py-4">
               <input type="checkbox" checked={t.status === "completed"} onChange={() => toggleStatus(t)}
                 aria-label={`Mark "${t.title}" as complete`} className="accent-accent rounded cursor-pointer" />

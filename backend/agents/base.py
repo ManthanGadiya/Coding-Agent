@@ -8,6 +8,8 @@ from datetime import datetime
 
 from backend.core.model_router import get_model_router
 from backend.models.llm import LLMRequest
+from backend.tools import get_tool, ToolResult, TOOL_REGISTRY
+from backend.core.safety import safety_controller
 
 
 class AgentState(str, Enum):
@@ -120,9 +122,27 @@ class BaseAgent(ABC):
         )
         return message
 
+    async def _safety_check(self, task: AgentTask) -> Optional[AgentResult]:
+        task_desc = task.description or ""
+        check = safety_controller.check_pre_operation(self.agent_id, task_desc, str(task.input_data))
+        if not check["safe_to_proceed"]:
+            return AgentResult(task_id=task.task_id, success=False, error=f"Safety block: {check['impact']['recommendation']}", metadata={"safety_check": check})
+        return None
+
+    async def _run_tool(self, tool_name: str, **kwargs) -> ToolResult:
+        tool = get_tool(tool_name)
+        if not tool:
+            return ToolResult(success=False, error=f"Unknown tool: {tool_name}")
+        return await tool.safe_execute(agent_id=self.agent_id, **kwargs)
+
     async def execute_task(self, task: AgentTask) -> AgentResult:
         self.state = AgentState.THINKING
         self.current_task = task
+        blocked = await self._safety_check(task)
+        if blocked:
+            self._task_history.append(blocked)
+            self.state = AgentState.ERROR
+            return blocked
         try:
             result = await self.process_task(task)
             self._task_history.append(result)

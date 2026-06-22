@@ -10,9 +10,18 @@ from backend.models.memory import (
     MemoryScope, MemoryCategory, MemoryStatus, ConfidenceLevel,
 )
 from backend.core.retention import retention_engine
+from backend.core.compression import memory_compressor
 from sqlalchemy import desc
 
 router = APIRouter()
+
+def _auto_retention_check(db: Session):
+    count = db.query(MemoryEntry).filter(MemoryEntry.status == MemoryStatus.ACTIVE).count()
+    if count > 200:
+        retention_engine.health_metrics([{"id": str(e.id), "usage_count": getattr(e, "usage_count", 0),
+            "confidence": e.confidence.value if hasattr(e.confidence, "value") else str(e.confidence),
+            "extra_metadata": e.extra_metadata or {}}
+            for e in db.query(MemoryEntry).filter(MemoryEntry.status == MemoryStatus.ACTIVE).all()])
 
 
 class GlobalMemoryCreate(BaseModel):
@@ -78,6 +87,7 @@ def create_global_memory(mem: GlobalMemoryCreate, db: Session = Depends(get_db))
     db.add(entry)
     db.commit()
     db.refresh(entry)
+    _auto_retention_check(db)
     return entry
 
 
@@ -105,6 +115,7 @@ def create_project_memory(mem: ProjectMemoryCreate, db: Session = Depends(get_db
     db.add(entry)
     db.commit()
     db.refresh(entry)
+    _auto_retention_check(db)
     return entry
 
 
@@ -136,6 +147,7 @@ def create_memory_entry(entry: MemoryEntryCreate, db: Session = Depends(get_db))
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
+    _auto_retention_check(db)
     return db_entry
 
 
