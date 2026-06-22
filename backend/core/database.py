@@ -16,6 +16,7 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+EngineSession = sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
 
 SEED_AGENTS = [
     {"agent_type": AgentType.MANAGER, "name": "Manager Agent", "description": "Central coordinator — task orchestration, conflict resolution, progress tracking", "capabilities": ["route_task", "assign_agent", "monitor_progress", "resolve_conflict", "manage_workflow", "report_status", "classify_task", "assess_complexity"]},

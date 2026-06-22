@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
-from backend.core.learning import LearningSystem
-from backend.core.knowledge import knowledge_engine, ArtifactStatus
+from backend.core.learning import LearningSystem, FailureRecordModel
+from backend.core.database import EngineSession
+from backend.core.knowledge import knowledge_engine
+from backend.models.learning import ArtifactStatus
 
 router = APIRouter()
 system = LearningSystem()
@@ -70,7 +72,17 @@ def create_failure(req: FailureRequest):
 
 @router.get("/failures")
 def list_failures(limit: int = 20):
-    return [f.to_dict() for f in system.failures[-limit:]]
+    db = EngineSession()
+    try:
+        results = db.query(FailureRecordModel).order_by(FailureRecordModel.created_at.desc()).limit(limit).all()
+        return [{
+            "id": r.id, "description": r.description, "category": r.category.value if r.category else "",
+            "severity": r.severity.value if r.severity else "", "root_cause": r.root_cause,
+            "resolution": r.resolution, "impact": r.impact,
+            "created_at": r.created_at.isoformat() if r.created_at else "",
+        } for r in results]
+    finally:
+        db.close()
 
 
 @router.post("/lessons")
@@ -151,13 +163,15 @@ class ObservationRequest(BaseModel):
 @router.post("/knowledge/observe")
 def record_observation(req: ObservationRequest):
     obs = knowledge_engine.record_observation(req.title, req.content, req.tags)
-    return obs.__dict__
+    return {"id": obs.id, "title": obs.title, "status": obs.status.value if obs.status else "",
+            "tags": obs.tags, "created_at": obs.created_at.isoformat() if obs.created_at else ""}
 
 
 @router.post("/knowledge/promote")
 def promote_from_patterns(patterns: List[Dict[str, Any]]):
     results = knowledge_engine.promote_from_patterns(patterns)
-    return {"promoted": [r.__dict__ for r in results], "count": len(results)}
+    return {"promoted": [{"id": r.id, "title": r.title, "status": r.status.value if r.status else "",
+                          "confidence": r.confidence, "tags": r.tags} for r in results], "count": len(results)}
 
 
 @router.get("/knowledge/artifacts")
