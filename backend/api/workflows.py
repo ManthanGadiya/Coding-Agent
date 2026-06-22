@@ -13,7 +13,7 @@ from backend.core.workflow_engine import (
     evaluate_quality_gate, evaluate_completion_criteria,
     get_workflow_for_complexity, workflow_controller,
 )
-from backend.core.release import release_engine, ReleaseType
+from backend.core.release import release_engine
 
 router = APIRouter()
 

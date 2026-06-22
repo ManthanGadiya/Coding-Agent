@@ -24,6 +24,7 @@ Active development. Backend + frontend working.
 - **Autonomy System**: 3 modes, 35+ capability risk levels, 4-tier approval classes
 - **Weighted Memory Retrieval**: 7-factor scoring, 8 agent profiles, 9 retrieval modes
 - **Database**: SQLAlchemy + SQLite, auto-seeded at startup
+- **Release Engine**: DB-backed ReleaseCandidate model, 4 check gates, 4 rollback strategies
 
 ### Frontend (Next.js 16, port 3000)
 - **8 pages**: Dashboard, Projects, Agents, Tasks, Workflows, Memory, Memory Retrieval, Learning
