@@ -1,3 +1,4 @@
+import re
 import subprocess
 import tempfile
 import os
@@ -8,7 +9,11 @@ from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage
 
 SYSTEM_PROMPT = """You are an expert software engineer implementing code.
 Given a specification, write clean, correct, maintainable code.
-Explain your approach briefly, then output the implementation."""
+Output each file as a code block with the relative filepath in the opening fence:
+```relative/path/to/file.py
+<code>
+```
+Write all files needed for the implementation."""
 
 
 class CoderAgent(BaseAgent):
@@ -85,12 +90,28 @@ class CoderAgent(BaseAgent):
             return AgentResult(task_id="", success=False, error=str(e))
 
     async def _implement(self, task: AgentTask) -> AgentResult:
+        base_path = task.input_data.get("base_path", str(Path.cwd()))
         spec = task.input_data.get("spec", task.description)
-        prompt = f"Implement the following specification:\n\n{spec}\n\nOutput only the code and a brief explanation."
-        output = await self._llm_generate(prompt, SYSTEM_PROMPT, max_tokens=2048)
+        prompt = f"Implement the following specification:\n\n{spec}\n\nUse relative paths from: {base_path}"
+        output = await self._llm_generate(prompt, SYSTEM_PROMPT, max_tokens=4096)
+        files_written = []
+        errors = []
+        for match in re.finditer(r'```(\S+)\n(.*?)```', output, re.DOTALL):
+            filepath = match.group(1)
+            content = match.group(2).strip()
+            full_path = Path(base_path) / filepath
+            try:
+                full_path.parent.mkdir(parents=True, exist_ok=True)
+                full_path.write_text(content)
+                files_written.append(filepath)
+            except Exception as e:
+                errors.append(f"{filepath}: {e}")
         return AgentResult(
-            task_id=task.task_id, success=True, output=output,
-            metadata={"spec_snippet": spec[:200], "task_type": "implementation"}
+            task_id=task.task_id,
+            success=len(errors) == 0,
+            output=f"Wrote {len(files_written)} files: {', '.join(files_written)}" if files_written else output,
+            error="; ".join(errors) if errors else None,
+            metadata={"spec_snippet": spec[:200], "files_written": files_written, "task_type": "implementation"}
         )
 
     async def _refactor(self, data: Dict) -> AgentResult:

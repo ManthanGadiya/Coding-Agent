@@ -13,6 +13,7 @@ Active development. Backend + frontend working.
 ### Backend (FastAPI, port 8000)
 - **149 API routes** across projects, tasks, agents, memory, workflows, LLM, decisions, learning, autonomy, tools
 - **8 agents**: Manager (coordinator), Architect, Planner, Coder, Reviewer, Tester, Debugger, Memory — all wired to **ModelRouter** for real LLM output (not stubs)
+- **CoderAgent._implement()** writes files to disk from LLM output (parses fenced code blocks with paths)
 - **ModelRouter**: 5 providers — Ollama (local), OpenAI, Anthropic, Gemini, OpenAI-compatible gateway (OpenRouter/LiteLLM/etc.)
 - **Streaming endpoint**: `POST /api/v1/llm/stream` for token-by-token LLM output
 - **Workflow Engine**: 6 workflow types, 4 complexity tiers, task classifier, step builder
@@ -33,6 +34,8 @@ Active development. Backend + frontend working.
 ### Manager Runtime (run_goal)
 - `ManagerAgent.run_goal(goal)`: classify → complexity → smallest workflow → execute → result
 - Step-to-agent mapping for all 28 workflow step types
+- Each step result auto-stored to MemoryAgent for cross-session recall
+- ManagerAgent is a singleton — state persists across calls
 
 ---
 

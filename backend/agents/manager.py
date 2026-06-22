@@ -149,6 +149,14 @@ class ManagerAgent(BaseAgent):
             step_result = {"step": step_def["name"], "agent": agent_id, "status": "completed" if result.success else "failed", "task_type": task_type_for_step, "output": str(result.output)[:500], "error": result.error}
             results.append(step_result)
             workflow_controller.transition(pipeline.id, {"status": "completed" if result.success else "failed", "output": result.output, "error": result.error})
+            mem_agent = self.get_agent("memory-1")
+            if mem_agent and result.success:
+                await mem_agent.execute_task(AgentTask(
+                    task_id=f"{pipeline.id}-mem-{i}",
+                    task_type="store",
+                    description="Auto-store step result",
+                    input_data={"key": f"step-{pipeline.id}-{i}", "value": str(result.output)[:500], "project_id": goal_context.get("project_id"), "tags": [task_type_for_step, "auto"]},
+                ))
             if not result.success:
                 break
         pipeline_status = workflow_controller.get_status(pipeline.id)
