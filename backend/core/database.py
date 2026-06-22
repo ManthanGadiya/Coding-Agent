@@ -4,7 +4,6 @@ from sqlalchemy.pool import StaticPool
 from backend.config.settings import get_settings
 from backend.models.base import Base
 from backend.models.agent import Agent, AgentType, AgentStatus
-from contextlib import contextmanager
 from typing import Generator
 
 settings = get_settings()
@@ -48,18 +47,5 @@ def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
-    finally:
-        db.close()
-
-
-@contextmanager
-def get_db_context() -> Generator[Session, None, None]:
-    db = SessionLocal()
-    try:
-        yield db
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
     finally:
         db.close()

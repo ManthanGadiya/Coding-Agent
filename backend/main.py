@@ -4,8 +4,10 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 
-from backend.core.config import settings
-from backend.core.database import init_db, get_db_context
+from backend.config.settings import get_settings
+from backend.core.database import init_db
+
+settings = get_settings()
 from backend.api import router as api_router
 
 logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL))

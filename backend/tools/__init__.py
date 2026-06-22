@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
+from datetime import datetime
 
 
 class ToolPermission(str, Enum):
@@ -48,12 +49,8 @@ class BaseTool(ABC):
                 return f"Missing required argument: {arg}"
         return None
 
-    def set_autonomy_check(self, check_fn):
-        self._autonomy_check = check_fn
-
     async def safe_execute(self, agent_id: str = "", agent_role: str = "",
                             session_id: str = "", **kwargs) -> ToolResult:
-        from datetime import datetime
         result = await self.execute(**kwargs)
         log_tool_use({
             "tool": self.name, "agent_id": agent_id, "agent_role": agent_role,
@@ -172,27 +169,6 @@ class CommandTool(BaseTool):
             )
         except subprocess.TimeoutExpired:
             return ToolResult(success=False, error=f"Command timed out after {timeout}s")
-        except Exception as e:
-            return ToolResult(success=False, error=str(e))
-
-
-class BrowserTool(BaseTool):
-    def __init__(self):
-        super().__init__(
-            name="browser_tool",
-            description="Fetch and extract content from web pages",
-            required_permissions=[ToolPermission.READ],
-            risk_level=ToolRiskLevel.LOW
-        )
-
-    async def execute(self, **kwargs) -> ToolResult:
-        import httpx
-        url = kwargs.get("url", "")
-        if not url:
-            return ToolResult(success=False, error="No URL provided")
-        try:
-            resp = httpx.get(url, follow_redirects=True, timeout=30)
-            return ToolResult(success=resp.is_success, data=resp.text[:100000], metadata={"status": resp.status_code})
         except Exception as e:
             return ToolResult(success=False, error=str(e))
 
@@ -362,29 +338,9 @@ class WebTool(BaseTool):
         return await self._fetch(url)
 
 
-class ResultPaginator:
-    def __init__(self, data: list, page_size: int = 100):
-        self.data = data
-        self.page_size = page_size
-        self.total = len(data)
-
-    def get_page(self, page: int = 0) -> Dict:
-        start = page * self.page_size
-        end = start + self.page_size
-        return {
-            "data": self.data[start:end],
-            "page": page,
-            "page_size": self.page_size,
-            "total": self.total,
-            "remaining": max(0, self.total - end),
-            "has_more": end < self.total,
-        }
-
-
 TOOL_REGISTRY: Dict[str, BaseTool] = {
     "file": FileTool(),
     "command": CommandTool(),
-    "browser": BrowserTool(),
     "web": WebTool(),
     "git": GitTool(),
     "database": DatabaseTool(),
@@ -396,7 +352,6 @@ AUDIT_LOG: List[Dict] = []
 
 
 def log_tool_use(entry: Dict):
-    from datetime import datetime
     entry["timestamp"] = datetime.utcnow().isoformat()
     AUDIT_LOG.append(entry)
 

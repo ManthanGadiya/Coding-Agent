@@ -10,12 +10,6 @@ class DecisionType(str, Enum):
     STRATEGIC = "strategic"
 
 
-class Confidence(str, Enum):
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-
-
 class RiskLevel(str, Enum):
     LOW = "low"
     MEDIUM = "medium"

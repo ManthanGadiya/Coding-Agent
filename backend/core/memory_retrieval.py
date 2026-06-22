@@ -1,31 +1,6 @@
 from typing import Any, Dict, List, Optional, Tuple
-from enum import Enum
 from dataclasses import dataclass, field
 import math
-
-
-class AgentType(str, Enum):
-    MANAGER = "manager"
-    ARCHITECT = "architect"
-    PLANNER = "planner"
-    CODER = "coder"
-    TESTER = "tester"
-    DEBUGGER = "debugger"
-    REVIEWER = "reviewer"
-    MEMORY = "memory"
-
-
-class RetrievalMode(str, Enum):
-    PLANNING = "planning"
-    ARCHITECTURE = "architecture"
-    IMPLEMENTATION = "implementation"
-    TESTING = "testing"
-    DEBUGGING = "debugging"
-    REVIEW = "review"
-    LEARNING = "learning"
-    RESEARCH = "research"
-    OPTIMIZATION = "optimization"
-
 
 AGENT_RETRIEVAL_PROFILES: Dict[str, Dict[str, float]] = {
     "manager": {"project_status": 1.0, "risks": 0.9, "milestones": 0.8, "dependencies": 0.7,

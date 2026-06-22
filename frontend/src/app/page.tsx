@@ -35,7 +35,7 @@ export default function Dashboard() {
     { label: "Agents", value: orch?.registered_agents ?? "-", sub: `${orch?.agents ? Object.values(orch.agents).filter((a: any) => a.state === "idle").length : "-"} idle` },
     { label: "Projects", value: projects.length, sub: `${projects.filter((p: any) => p.status === "active").length} active` },
     { label: "Tasks", value: tasks.length, sub: `${tasks.filter((t: any) => t.status !== "completed").length} pending` },
-    { label: "Memory", value: "?", sub: "click Memory tab" },
+    { label: "Memory", value: "-", sub: "open Memory tab" },
   ];
 
   return (
