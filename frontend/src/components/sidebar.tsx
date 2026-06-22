@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+function cn(...classes: (string | false | null | undefined)[]) { return classes.filter(Boolean).join(" "); }
 
 const nav = [
   { href: "/", label: "Dashboard", icon: "⊞" },

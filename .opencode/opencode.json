@@ -3,7 +3,4 @@
   "plugin": [
     "agent"
   ],
-  "timeout": 600000,
-  "requestTimeout": 600
-
 }

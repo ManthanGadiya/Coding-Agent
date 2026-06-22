@@ -29,12 +29,6 @@ async def execute_tool(req: ToolExecuteRequest):
     if not tool:
         raise HTTPException(404, f"Tool '{req.tool}' not found")
 
-    tool.set_autonomy_check(
-        lambda cap, role, sid: autonomy.can_execute(cap, role, sid).__getitem__("can_execute")
-        if hasattr(autonomy.can_execute(cap, role, sid), "__getitem__")
-        else autonomy.can_execute(cap, role, sid)
-    )
-
     result = await tool.safe_execute(
         agent_id=req.agent_id, agent_role=req.agent_role,
         session_id=req.session_id, **req.params

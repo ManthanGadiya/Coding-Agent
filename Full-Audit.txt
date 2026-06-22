@@ -1,0 +1,38 @@
+Full audit complete. Here's the report.
+Over-Engineering Audit — Full Repo
+Ranked biggest cut first. One line per finding.
+DEAD FILES (~352 lines)
+1. delete Entire backend/mcps/ package dead. get_mcp/MCP_REGISTRY never called outside mcps. backend/mcps/ — 6 files, 167 lines
+2. delete core/toon.py — custom serialization, zero imports anywhere. backend/core/toon.py:1-185
+3. delete schemas/ and workflows/ dirs — empty, no files. backend/schemas/, backend/workflows/
+DEAD CODE IN LIVE FILES (~164 lines)
+ 4. yagni 11 unused Settings fields: DEBUG, ENVIRONMENT, HOST, PORT, FRONTEND_URL, GEMINI_API_KEY, MARKITDOWN_MCP_URL, COMPOSIO_MCP_URL, HERMES_MCP_URL, RUFLO_MCP_URL, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, DEFAULT_AUTONOMY_MODE, REQUIRE_APPROVAL_FOR_PUSH, REQUIRE_APPROVAL_FOR_DEPLOY, LOG_FORMAT, MEMORY_RETENTION_DAYS, MAX_MEMORY_ENTRIES. backend/config/settings.py:11-63
+ 5. delete 4 backward-compat /orchestrator/* alias routes, zero frontend callers. backend/api/agents.py:84-103
+ 6. delete get_db_context function, imported in main.py but never called. backend/core/database.py:55-65
+ 7. delete Duplicate AgentType enum (identical to models/agent.py), never referenced. backend/core/memory_retrieval.py:7-16
+ 8. delete RetrievalMode enum, defined+imported but never referenced. backend/core/memory_retrieval.py:18-27
+ 9. yagni Confidence enum, defined but never used (string literals used instead). backend/core/decision_engine.py:13-16
+10. yagni ResultPaginator class, never instantiated. backend/tools/init.py:365-381
+11. yagni BrowserTool class, duplicates WebTool._fetch, registered but never called. backend/tools/init.py:179-197
+12. yagni set_autonomy_check — stores fn but safe_execute never calls it. backend/tools/init.py:51-52
+13. shrink SafetyManager.impact_report — pure delegation to safety_controller.analyze_impact. backend/core/autonomy.py:80-82
+14. yagni core/config.py — 3-line re-export, only caller (main.py) already imports directly. backend/core/config.py:1-3
+15. delete Dead _score_option notes var — created, never appended, never read. backend/core/decision_engine.py:122
+16. delete Dead _message_loop response — if response: pass. backend/agents/base.py:95-96
+17. shrink 28 dead frontend API methods — agents.list/get/status, tasks.get/create, memory.entries/search, orchestrator.status, learning.recordFailure/createLesson/recordMetrics/scoreMetrics/propose, memoryRetrieval.store/expand/profile, workflows.get/create/categories, projects.get/create, health. frontend/src/lib/api.ts:16-76
+18. delete Hardcoded stub data in memory page — filter bar with zero handlers. frontend/src/app/memory/page.tsx:1-18
+19. delete Hardcoded stub data in tasks page. frontend/src/app/tasks/page.tsx:1-7
+20. delete 2 dead CSS vars: --color-card-hover, --color-error. frontend/src/app/globals.css:12,14
+21. stdlib cn() utility used once — template literal suffices. frontend/src/lib/utils.ts:1-3
+DEAD ASSETS
+22. delete 5 default Next.js SVGs, zero imports. frontend/public/file.svg, globe.svg, next.svg, vercel.svg, window.svg
+UNUSED IMPORTS (71 across 26 files)
+Biggest offenders: tempfile in coder.py/tester.py, os in coder.py, asyncio/AgentState in manager.py, math/Tuple in memory_retrieval.py, Tuple in decision_engine.py/learning.py, get_db_context in main.py, AgentStatus in database.py, Query/HTTPException in memory_retrieval.py. Full list: 71 unused imports.
+STALE BYTECODE
+23. delete 93 stale .pyc files across __pycache__/ dirs.
+Net removable: ~415 lines (out of ~3,500 backend + 900 frontend = 9.5%)
+Removable files: 1 (core/toon.py)
+Removable dirs: 3 (mcps/, schemas/, workflows/)
+Removable assets: 5 (SVGs)
+Removable dependencies: 0 (httpx used by WebTool, pydantic-settings used by Settings)
+Lean already? No. MCP package and toon.py are fully dead — 352 lines of zero-reach code. Settings has 11 fields nobody reads. Frontend api.ts is 36% dead methods.

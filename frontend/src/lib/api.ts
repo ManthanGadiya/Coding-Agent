@@ -43,9 +43,6 @@ export const api = {
   manager: {
     status: () => fetchJSON<any>("/api/v1/agents/manager/status"),
   },
-  orchestrator: {
-    status: () => fetchJSON<any>("/api/v1/agents/manager/status"),
-  },
 
   learning: {
     failures: () => fetchJSON<any[]>("/api/v1/learning/failures"),

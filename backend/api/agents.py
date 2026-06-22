@@ -93,28 +93,6 @@ async def run_goal(req: RunGoalRequest):
     return result
 
 
-# --- Backward compat: old /orchestrator/* aliases ---
-
-@router.get("/orchestrator/status")
-def get_orchestrator_status():
-    return get_manager_status()
-
-
-@router.get("/orchestrator/info")
-def get_orchestrator_info():
-    return get_manager_info()
-
-
-@router.post("/orchestrator/route")
-async def orchestrator_route_task(task_data: dict):
-    return await route_task(task_data)
-
-
-@router.post("/orchestrator/workflow")
-async def orchestrator_run_workflow(workflow_data: dict):
-    return await run_workflow(workflow_data)
-
-
 # --- CRUD routes ---
 
 @router.post("", response_model=AgentResponse, status_code=201)
