@@ -1,23 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, ProjectResponse } from "@/lib/api";
 
 export default function Projects() {
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
 
   useEffect(() => {
-    api.projects.list().then((d: any) => setProjects(d.projects ?? d)).catch(() => {});
+    api.projects.list().then((d) => setProjects(d.projects)).catch(() => {});
   }, []);
 
   async function createProject() {
     if (!name.trim()) return;
     await api.projects.create({ name: name.trim(), display_name: name.trim(), description: desc || undefined }).catch(() => {});
     setName(""); setDesc(""); setShowCreate(false);
-    api.projects.list().then((d: any) => setProjects(d.projects ?? d)).catch(() => {});
+    api.projects.list().then((d) => setProjects(d.projects)).catch(() => {});
   }
 
   return (

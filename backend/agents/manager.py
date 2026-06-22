@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage, AgentState
 from backend.core.workflow_engine import ComplexityLevel, workflow_controller
+from backend.core.learning import LearningSystem
 from backend.agents.coder import CoderAgent
 from backend.agents.reviewer import ReviewerAgent
 from backend.agents.tester import TesterAgent
@@ -158,6 +159,13 @@ class ManagerAgent(BaseAgent):
                     input_data={"key": f"step-{pipeline.id}-{i}", "value": str(result.output)[:500], "project_id": goal_context.get("project_id"), "tags": [task_type_for_step, "auto"]},
                 ))
             if not result.success:
+                topic = f"goal-failure-{pipeline.id}"
+                LearningSystem().create_lesson(
+                    topic=topic, description=f"Step '{step_def['name']}' failed: {result.error}",
+                    evidence=[f"goal: {goal}", f"agent: {agent_id}", f"step: {step_def['name']}", f"error: {result.error or 'unknown'}"],
+                    confidence="high", scope="agent",                     supporting_projects=[goal_context["project_id"]] if goal_context and goal_context.get("project_id") else [],
+                    author=self.agent_id
+                )
                 break
         pipeline_status = workflow_controller.get_status(pipeline.id)
         return {
