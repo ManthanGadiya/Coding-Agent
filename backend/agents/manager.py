@@ -5,6 +5,7 @@ from enum import Enum
 from dataclasses import dataclass, field
 
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage, AgentState
+from backend.core.workflow_engine import ComplexityLevel, workflow_controller
 from backend.agents.coder import CoderAgent
 from backend.agents.reviewer import ReviewerAgent
 from backend.agents.tester import TesterAgent
@@ -93,6 +94,71 @@ class ManagerAgent(BaseAgent):
 
     def find_agents_for_task(self, task_type: str) -> List[BaseAgent]:
         return [a for a in self.agents.values() if a.can_handle(task_type)]
+
+    STEP_TASK_MAP: Dict[str, str] = {
+        "manager_analysis": "classify_task", "workflow_selection": "route_task",
+        "feature_classification": "classify_task", "bug_classification": "classify_task",
+        "refactor_classification": "classify_task", "agent_assignment": "assign_agent",
+        "manager_approval": "route_task", "manager_decision": "route_task",
+        "requirements": "requirement_analysis", "research": "research",
+        "architecture": "architecture_design", "planning": "plan_generation",
+        "implementation": "implement", "testing": "run_test",
+        "validation": "run_test", "regression_testing": "run_test",
+        "review": "review_code", "memory_update": "store",
+        "knowledge_capture": "store", "investigation": "diagnose",
+        "root_cause_analysis": "analyze_error", "quality_gate": "route_task",
+        "user_awareness": "route_task", "release_execution": "route_task",
+        "monitoring": "run_test", "post_release_review": "review_code",
+        "test_validation": "run_test", "review_validation": "review_code",
+    }
+
+    AGENT_NAME_MAP: Dict[str, str] = {
+        "manager": "manager-1", "planner": "planner-1", "architect": "architect-1",
+        "coder": "coder-1", "tester": "tester-1", "debugger": "debugger-1",
+        "reviewer": "reviewer-1", "memory": "memory-1",
+    }
+
+    async def run_goal(self, goal: str, context: Optional[Dict] = None) -> Dict[str, Any]:
+        goal_context = context or {}
+        classification = self._classify_task({"description": goal})
+        task_type = classification.output["task_type"]
+        complexity = self._assess_complexity({"description": goal})
+        complexity_label = complexity.output["label"]
+        level_map = {"simple": "simple", "moderate": "moderate", "complex": "complex", "project": "critical"}
+        complexity_enum = ComplexityLevel(level_map.get(complexity_label, "moderate"))
+        category = workflow_controller.enforce_smallest_workflow("task_pipeline", complexity_enum)
+        pipeline = workflow_controller.create_pipeline(category, complexity_enum.value)
+        results: List[Dict[str, Any]] = []
+        for i, step_def in enumerate(pipeline.steps):
+            agent_name = step_def["agent"]
+            agent_id = self.AGENT_NAME_MAP.get(agent_name)
+            agent = self.get_agent(agent_id) if agent_id else None
+            if not agent:
+                step_result = {"step": step_def["name"], "agent": agent_name, "status": "failed", "error": f"No agent mapped for role: {agent_name}"}
+                workflow_controller.transition(pipeline.id, {"status": "failed", "error": step_result["error"]})
+                results.append(step_result)
+                break
+            task_type_for_step = self.STEP_TASK_MAP.get(step_def["name"], "general")
+            task = AgentTask(
+                task_id=f"{pipeline.id}-step-{i}",
+                task_type=task_type_for_step,
+                description=step_def["description"],
+                input_data={"goal": goal, "task_type": task_type, "complexity": complexity_label, "context": goal_context, "step": step_def},
+            )
+            result = await agent.execute_task(task)
+            step_result = {"step": step_def["name"], "agent": agent_id, "status": "completed" if result.success else "failed", "task_type": task_type_for_step, "output": str(result.output)[:500], "error": result.error}
+            results.append(step_result)
+            workflow_controller.transition(pipeline.id, {"status": "completed" if result.success else "failed", "output": result.output, "error": result.error})
+            if not result.success:
+                break
+        pipeline_status = workflow_controller.get_status(pipeline.id)
+        return {
+            "goal": goal, "classification": task_type, "complexity": complexity_label,
+            "pipeline_id": pipeline.id,
+            "pipeline_status": pipeline_status.state.value if pipeline_status else "unknown",
+            "steps": results, "success": all(r["status"] == "completed" for r in results),
+            "total_steps": len(pipeline.steps), "completed_steps": len([r for r in results if r["status"] == "completed"]),
+        }
 
     async def process_task(self, task: AgentTask) -> AgentResult:
         task_type = task.task_type

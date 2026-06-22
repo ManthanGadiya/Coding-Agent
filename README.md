@@ -198,6 +198,14 @@ CAMera is in active development with a working backend and frontend.
 - **Learning page**: Tabs for failures (with 5 Whys analyzer), lessons, metrics timeline, improvement proposals
 - **Sidebar**: Updated with links to all 8 pages
 
+### Phase 1 — Manager Runtime (run_goal)
+- **`ManagerAgent.run_goal(goal)`**: End-to-end goal pipeline — classify → assess complexity → select smallest workflow → create pipeline → execute sequential steps via specialist agents → return comprehensive result with per-step outcomes
+- **`POST /api/v1/agents/run-goal`**: REST endpoint accepting `{"goal": "...", "context": {...}}`, returns pipeline_id, per-step results, success status
+- **Smallest-workflow enforcement**: Simple tasks route through Manager → Coder → Tester → Memory; complex tasks add Planner, Architect, Reviewer, Debugger as needed
+- **Step-to-agent mapping**: All 28 workflow step types mapped to agent task types via `STEP_TASK_MAP`; 8 agent roles mapped via `AGENT_NAME_MAP`
+- **Pipeline state tracking**: Uses `WorkflowController` for create/transition/status lifecycle per pipeline
+- **Phase 2 target**: Wire LLM-powered ModelRouter into `run_goal` to replace stub agent responses with real LLM-generated output
+
 ### Next Priorities
 - Integration testing across all subsystems
 - Agent orchestration tests (Manager running workflows through agents)
