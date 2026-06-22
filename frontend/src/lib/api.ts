@@ -25,6 +25,8 @@ export const api = {
     list: () => fetchJSON<any[]>("/api/v1/agents"),
     get: (id: string) => fetchJSON<any>(`/api/v1/agents/${id}`),
     status: (id: string) => fetchJSON<any>(`/api/v1/agents/${id}/status`),
+    runGoal: (goal: string, context?: Record<string, any>) =>
+      fetchJSON<any>("/api/v1/agents/run-goal", { method: "POST", body: JSON.stringify({ goal, context }) }),
   },
 
   tasks: {
