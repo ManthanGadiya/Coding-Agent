@@ -3,194 +3,154 @@ from enum import Enum
 from dataclasses import dataclass, field
 from datetime import datetime
 
-
-class FailureSeverity(str, Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class FailureCategory(str, Enum):
-    INTERNAL = "internal"
-    EXTERNAL = "external"
-    PROCESS = "process"
-    KNOWLEDGE = "knowledge"
-    TOOL = "tool"
-    WORKFLOW = "workflow"
-
-
-class LessonStatus(str, Enum):
-    ACTIVE = "active"
-    HISTORICAL = "historical"
-    SUPERSEDED = "superseded"
-
-
-class LessonScope(str, Enum):
-    PROJECT = "project"
-    PROJECT_TYPE = "project_type"
-    GLOBAL = "global"
-
-
-class Confidence(str, Enum):
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-
-
-@dataclass
-class FailureRecord:
-    failure_id: str
-    description: str
-    category: FailureCategory
-    severity: FailureSeverity
-    impact: str
-    affected_components: List[str]
-    root_cause: str
-    root_cause_confidence: Confidence
-    resolution: str
-    preventive_actions: List[str]
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-
-    def to_dict(self) -> Dict:
-        return {k: v.value if isinstance(v, Enum) else v for k, v in self.__dict__.items()}
-
-
-@dataclass
-class Lesson:
-    lesson_id: str
-    topic: str
-    description: str
-    supporting_projects: List[str]
-    evidence: List[str]
-    confidence: Confidence
-    status: LessonStatus = LessonStatus.ACTIVE
-    scope: LessonScope = LessonScope.PROJECT
-    author: str = "system"
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-
-    def to_dict(self) -> Dict:
-        return {k: v.value if isinstance(v, Enum) else v for k, v in self.__dict__.items()}
-
-
-@dataclass
-class MetricSnapshot:
-    timestamp: str
-    overall: float
-    categories: Dict[str, float]
+from backend.core.database import EngineSession
+from backend.models.learning import (
+    FailureRecord as FailureRecordModel, FailureCategory, FailureSeverity, Confidence,
+    Lesson as LessonModel, LessonStatus, LessonScope,
+    MetricSnapshot as MetricSnapshotModel,
+    Proposal as ProposalModel,
+    KnowledgeArtifact as KnowledgeArtifactModel, ArtifactStatus,
+    CandidateRule as CandidateRuleModel,
+)
 
 
 class LearningSystem:
     def __init__(self):
-        self.failures: List[FailureRecord] = []
-        self.lessons: List[Lesson] = []
-        self.metrics: List[MetricSnapshot] = []
-        self.proposals: List[Dict] = []
         self._failure_counter = 0
         self._lesson_counter = 0
+
+    def _db(self):
+        return EngineSession()
 
     def record_failure(self, description: str, category: str, severity: str, impact: str,
                        affected_components: List[str], root_cause: str,
                        root_cause_confidence: str = "medium",
                        resolution: str = "", preventive_actions: Optional[List[str]] = None) -> Dict:
-        self._failure_counter += 1
-        record = FailureRecord(
-            failure_id=f"FAIL-{self._failure_counter:04d}",
-            description=description,
-            category=FailureCategory(category),
-            severity=FailureSeverity(severity),
-            impact=impact,
-            affected_components=affected_components,
-            root_cause=root_cause,
-            root_cause_confidence=Confidence(root_cause_confidence),
-            resolution=resolution,
-            preventive_actions=preventive_actions or [],
-        )
-        self.failures.append(record)
+        db = self._db()
+        try:
+            record = FailureRecordModel(
+                description=description, category=FailureCategory(category),
+                severity=FailureSeverity(severity), impact=impact,
+                affected_components=affected_components, root_cause=root_cause,
+                root_cause_confidence=Confidence(root_cause_confidence),
+                resolution=resolution, preventive_actions=preventive_actions or [],
+            )
+            db.add(record)
+            db.commit()
+            db.refresh(record)
 
-        if record.root_cause_confidence in (Confidence.HIGH, Confidence.MEDIUM):
-            self._auto_generate_lesson(record)
+            if record.root_cause_confidence in (Confidence.HIGH, Confidence.MEDIUM):
+                self._auto_generate_lesson(db, record)
 
-        return record.to_dict()
+            return {
+                "failure_id": record.id, "description": record.description,
+                "category": record.category.value, "severity": record.severity.value,
+                "root_cause": record.root_cause, "timestamp": record.created_at.isoformat() if record.created_at else "",
+            }
+        finally:
+            db.close()
 
-    def _auto_generate_lesson(self, failure: FailureRecord) -> Optional[Lesson]:
+    def _auto_generate_lesson(self, db, failure: FailureRecordModel):
         topic = f"Prevent: {failure.root_cause[:80]}"
-        description = f"Failure #{failure.failure_id}: {failure.description}\nRoot cause: {failure.root_cause}"
-        lesson = Lesson(
-            lesson_id=f"LESSON-{self._lesson_counter + 1:04d}",
-            topic=topic,
-            description=description,
-            supporting_projects=[],
-            evidence=[f"Failure {failure.failure_id}: {failure.description}", f"Root cause: {failure.root_cause}"],
+        description = f"Failure #{failure.id}: {failure.description}\nRoot cause: {failure.root_cause}"
+        lesson = LessonModel(
+            topic=topic, description=description,
+            evidence=[f"Failure {failure.id}: {failure.description}", f"Root cause: {failure.root_cause}"],
             confidence=failure.root_cause_confidence,
         )
-        self._lesson_counter += 1
-        self.lessons.append(lesson)
-        return lesson
+        db.add(lesson)
+        db.commit()
 
     def create_lesson(self, topic: str, description: str, evidence: List[str],
                       confidence: str = "medium", scope: str = "project",
                       supporting_projects: Optional[List[str]] = None,
                       author: str = "system") -> Dict:
-        self._lesson_counter += 1
-        lesson = Lesson(
-            lesson_id=f"LESSON-{self._lesson_counter:04d}",
-            topic=topic,
-            description=description,
-            supporting_projects=supporting_projects or [],
-            evidence=evidence,
-            confidence=Confidence(confidence),
-            scope=LessonScope(scope),
-            author=author,
-        )
-        self.lessons.append(lesson)
-        return lesson.to_dict()
+        db = self._db()
+        try:
+            lesson = LessonModel(
+                topic=topic, description=description,
+                supporting_projects=supporting_projects or [], evidence=evidence,
+                confidence=Confidence(confidence), scope=LessonScope(scope), author=author,
+            )
+            db.add(lesson)
+            db.commit()
+            db.refresh(lesson)
+            return {
+                "lesson_id": lesson.id, "topic": lesson.topic,
+                "confidence": lesson.confidence.value, "scope": lesson.scope.value,
+                "status": lesson.status.value, "created_at": lesson.created_at.isoformat() if lesson.created_at else "",
+            }
+        finally:
+            db.close()
 
     def search_lessons(self, query: str = "", scope: Optional[str] = None,
                        status: Optional[str] = None, confidence: Optional[str] = None,
                        limit: int = 10) -> List[Dict]:
-        results = self.lessons
-        if scope:
-            results = [l for l in results if l.scope.value == scope]
-        if status:
-            results = [l for l in results if l.status.value == status]
-        if confidence:
-            results = [l for l in results if l.confidence.value == confidence]
-        if query:
-            q = query.lower()
-            results = [l for l in results if q in l.topic.lower() or q in l.description.lower()]
-        return [l.to_dict() for l in results[-limit:]]
+        db = self._db()
+        try:
+            q = db.query(LessonModel)
+            if scope:
+                q = q.filter(LessonModel.scope == LessonScope(scope))
+            if status:
+                q = q.filter(LessonModel.status == LessonStatus(status))
+            if confidence:
+                q = q.filter(LessonModel.confidence == Confidence(confidence))
+            if query:
+                like = f"%{query.lower()}%"
+                q = q.filter(LessonModel.topic.ilike(like) | LessonModel.description.ilike(like))
+            results = q.order_by(LessonModel.created_at.desc()).limit(limit).all()
+            return [{
+                "lesson_id": r.id, "topic": r.topic, "description": r.description[:200],
+                "confidence": r.confidence.value, "scope": r.scope.value,
+                "status": r.status.value, "author": r.author,
+                "created_at": r.created_at.isoformat() if r.created_at else "",
+            } for r in results]
+        finally:
+            db.close()
 
     def supersede_lesson(self, lesson_id: str, new_lesson_id: str) -> Dict:
-        for l in self.lessons:
-            if l.lesson_id == lesson_id:
-                l.status = LessonStatus.SUPERSEDED
-                l.updated_at = datetime.utcnow().isoformat()
-                return {"lesson_id": lesson_id, "new_status": "superseded", "superseded_by": new_lesson_id}
-        return {"error": f"Lesson {lesson_id} not found"}
+        db = self._db()
+        try:
+            lesson = db.query(LessonModel).filter(LessonModel.id == lesson_id).first()
+            if not lesson:
+                return {"error": f"Lesson {lesson_id} not found"}
+            lesson.status = LessonStatus.SUPERSEDED
+            lesson.superseded_by = new_lesson_id
+            db.commit()
+            return {"lesson_id": lesson_id, "new_status": "superseded", "superseded_by": new_lesson_id}
+        finally:
+            db.close()
 
     def promote_lesson(self, lesson_id: str, new_scope: str) -> Dict:
-        for l in self.lessons:
-            if l.lesson_id == lesson_id:
-                old = l.scope.value
-                l.scope = LessonScope(new_scope)
-                l.updated_at = datetime.utcnow().isoformat()
-                return {"lesson_id": lesson_id, "old_scope": old, "new_scope": new_scope}
-        return {"error": f"Lesson {lesson_id} not found"}
+        db = self._db()
+        try:
+            lesson = db.query(LessonModel).filter(LessonModel.id == lesson_id).first()
+            if not lesson:
+                return {"error": f"Lesson {lesson_id} not found"}
+            old = lesson.scope.value
+            lesson.scope = LessonScope(new_scope)
+            db.commit()
+            return {"lesson_id": lesson_id, "old_scope": old, "new_scope": new_scope}
+        finally:
+            db.close()
 
     def record_metrics(self, overall: float, categories: Dict[str, float]) -> Dict:
-        snapshot = MetricSnapshot(
-            timestamp=datetime.utcnow().isoformat(),
-            overall=overall,
-            categories=categories,
-        )
-        self.metrics.append(snapshot)
-        return {"timestamp": snapshot.timestamp, "overall": overall, "categories": categories}
+        db = self._db()
+        try:
+            snap = MetricSnapshotModel(overall=overall, categories=categories)
+            db.add(snap)
+            db.commit()
+            return {"timestamp": snap.created_at.isoformat() if snap.created_at else "", "overall": overall, "categories": categories}
+        finally:
+            db.close()
 
     def get_metrics(self, limit: int = 10) -> List[Dict]:
-        return [{"timestamp": m.timestamp, "overall": m.overall, "categories": m.categories}
-                for m in self.metrics[-limit:]]
+        db = self._db()
+        try:
+            results = db.query(MetricSnapshotModel).order_by(MetricSnapshotModel.created_at.desc()).limit(limit).all()
+            return [{"timestamp": r.created_at.isoformat() if r.created_at else "", "overall": r.overall, "categories": r.categories} for r in results]
+        finally:
+            db.close()
 
     def score_metrics(self, categories: Dict[str, float], weights: Optional[Dict[str, float]] = None) -> Dict:
         default_weights = {
@@ -219,28 +179,49 @@ class LearningSystem:
     def propose_improvement(self, observation: str, evidence: List[str],
                             expected_benefit: str, risks: List[str],
                             confidence: str = "medium", recommendation: str = "") -> Dict:
-        proposal = {
-            "proposal_id": f"IMP-{len(self.proposals) + 1:04d}",
-            "observation": observation,
-            "evidence": evidence,
-            "expected_benefit": expected_benefit,
-            "risks": risks,
-            "confidence": confidence,
-            "recommendation": recommendation or expected_benefit,
-            "status": "proposed",
-            "timestamp": datetime.utcnow().isoformat(),
-        }
-        self.proposals.append(proposal)
-        return proposal
+        db = self._db()
+        try:
+            prop = ProposalModel(
+                observation=observation, evidence=evidence,
+                expected_benefit=expected_benefit, risks=risks,
+                confidence=Confidence(confidence), recommendation=recommendation or expected_benefit,
+            )
+            db.add(prop)
+            db.commit()
+            db.refresh(prop)
+            return {
+                "proposal_id": prop.id, "observation": prop.observation,
+                "expected_benefit": prop.expected_benefit, "confidence": prop.confidence.value,
+                "status": prop.status, "timestamp": prop.created_at.isoformat() if prop.created_at else "",
+            }
+        finally:
+            db.close()
+
+    @property
+    def proposals(self) -> List[Dict]:
+        db = self._db()
+        try:
+            return [{
+                "proposal_id": p.id, "observation": p.observation,
+                "expected_benefit": p.expected_benefit, "confidence": p.confidence.value,
+                "status": p.status, "timestamp": p.created_at.isoformat() if p.created_at else "",
+            } for p in db.query(ProposalModel).order_by(ProposalModel.created_at.desc()).all()]
+        finally:
+            db.close()
 
     def review_proposal(self, proposal_id: str, decision: str, notes: str = "") -> Dict:
-        for p in self.proposals:
-            if p["proposal_id"] == proposal_id:
-                p["status"] = decision
-                p["review_notes"] = notes
-                p["reviewed_at"] = datetime.utcnow().isoformat()
-                return p
-        return {"error": f"Proposal {proposal_id} not found"}
+        db = self._db()
+        try:
+            prop = db.query(ProposalModel).filter(ProposalModel.id == proposal_id).first()
+            if not prop:
+                return {"error": f"Proposal {proposal_id} not found"}
+            prop.status = decision
+            prop.review_notes = notes
+            prop.reviewed_at = datetime.utcnow()
+            db.commit()
+            return {"proposal_id": prop.id, "status": decision, "review_notes": notes}
+        finally:
+            db.close()
 
     def five_whys(self, problem: str) -> List[Dict]:
         lines = problem.strip().split("\n")
