@@ -25,17 +25,17 @@ class MemoryAgent(BaseAgent):
         data = task.input_data
 
         if task_type == "store":
-            return self._store(data)
+            return await self._store(data)
         elif task_type == "retrieve":
-            return self._retrieve(data)
+            return await self._retrieve(data)
         elif task_type == "search":
-            return self._search(data)
+            return await self._search(data)
         elif task_type == "prune":
-            return self._prune(data)
+            return await self._prune(data)
         elif task_type == "get_context":
-            return self._get_context(data)
+            return await self._get_context(data)
         elif task_type == "list_by_project":
-            return self._list_by_project(data)
+            return await self._list_by_project(data)
         else:
             return AgentResult(
                 task_id=task.task_id,
@@ -56,7 +56,7 @@ class MemoryAgent(BaseAgent):
     def _get_db(self) -> Session:
         return SessionLocal()
 
-    def _store(self, data: Dict) -> AgentResult:
+    async def _store(self, data: Dict) -> AgentResult:
         db = self._get_db()
         try:
             entry = ProjectMemory(
@@ -83,7 +83,7 @@ class MemoryAgent(BaseAgent):
         finally:
             db.close()
 
-    def _retrieve(self, data: Dict) -> AgentResult:
+    async def _retrieve(self, data: Dict) -> AgentResult:
         db = self._get_db()
         try:
             query = db.query(ProjectMemory)
@@ -108,7 +108,7 @@ class MemoryAgent(BaseAgent):
         finally:
             db.close()
 
-    def _search(self, data: Dict) -> AgentResult:
+    async def _search(self, data: Dict) -> AgentResult:
         db = self._get_db()
         try:
             query = db.query(ProjectMemory)
@@ -132,7 +132,7 @@ class MemoryAgent(BaseAgent):
         finally:
             db.close()
 
-    def _prune(self, data: Dict) -> AgentResult:
+    async def _prune(self, data: Dict) -> AgentResult:
         db = self._get_db()
         try:
             cutoff = datetime.utcnow() - timedelta(days=data.get("retention_days", 365))
@@ -154,7 +154,7 @@ class MemoryAgent(BaseAgent):
         finally:
             db.close()
 
-    def _get_context(self, data: Dict) -> AgentResult:
+    async def _get_context(self, data: Dict) -> AgentResult:
         project_id = data.get("project_id")
         db = self._get_db()
         try:
@@ -173,7 +173,7 @@ class MemoryAgent(BaseAgent):
         finally:
             db.close()
 
-    def _list_by_project(self, data: Dict) -> AgentResult:
+    async def _list_by_project(self, data: Dict) -> AgentResult:
         db = self._get_db()
         try:
             entries = db.query(ProjectMemory).filter(

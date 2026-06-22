@@ -31,8 +31,13 @@ def create_agent(agent_type: str, agent_id: Optional[str] = None, config: Option
     return agent_cls(agent_id=agent_id, config=config)
 
 
+_manager_instance = None
+
 def get_manager() -> ManagerAgent:
-    return ManagerAgent()
+    global _manager_instance
+    if _manager_instance is None:
+        _manager_instance = ManagerAgent()
+    return _manager_instance
 
 
 __all__ = [
