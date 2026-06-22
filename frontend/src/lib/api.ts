@@ -9,6 +9,7 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
     const err = await res.text();
     throw new Error(`${res.status} ${res.statusText}: ${err.slice(0, 200)}`);
   }
+  if (res.status === 204) return null as T;
   return res.json();
 }
 
@@ -19,11 +20,16 @@ export const api = {
     list: () => fetchJSON<any[]>("/api/v1/projects"),
     get: (id: string) => fetchJSON<any>(`/api/v1/projects/${id}`),
     create: (data: any) => fetchJSON<any>("/api/v1/projects", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: any) => fetchJSON<any>(`/api/v1/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: string) => fetchJSON<void>(`/api/v1/projects/${id}`, { method: "DELETE" }),
   },
 
   agents: {
     list: () => fetchJSON<any[]>("/api/v1/agents"),
     get: (id: string) => fetchJSON<any>(`/api/v1/agents/${id}`),
+    create: (data: any) => fetchJSON<any>("/api/v1/agents", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: any) => fetchJSON<any>(`/api/v1/agents/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: string) => fetchJSON<void>(`/api/v1/agents/${id}`, { method: "DELETE" }),
     status: (id: string) => fetchJSON<any>(`/api/v1/agents/${id}/status`),
     runGoal: (goal: string, context?: Record<string, any>) =>
       fetchJSON<any>("/api/v1/agents/run-goal", { method: "POST", body: JSON.stringify({ goal, context }) }),
@@ -33,11 +39,14 @@ export const api = {
     list: (params?: string) => fetchJSON<any[]>(`/api/v1/tasks${params ? `?${params}` : ""}`),
     get: (id: string) => fetchJSON<any>(`/api/v1/tasks/${id}`),
     create: (data: any) => fetchJSON<any>("/api/v1/tasks", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: any) => fetchJSON<any>(`/api/v1/tasks/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: string) => fetchJSON<void>(`/api/v1/tasks/${id}`, { method: "DELETE" }),
   },
 
   memory: {
     entries: (params?: string) => fetchJSON<any[]>(`/api/v1/memory/entries${params ? `?${params}` : ""}`),
     search: (q: string) => fetchJSON<any[]>(`/api/v1/memory/search?q=${encodeURIComponent(q)}`),
+    stats: () => fetchJSON<any>("/api/v1/memory/stats").catch(() => null),
   },
 
   manager: {

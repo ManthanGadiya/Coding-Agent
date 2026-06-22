@@ -45,7 +45,9 @@ class LearningSystem:
             return {
                 "failure_id": record.id, "description": record.description,
                 "category": record.category.value, "severity": record.severity.value,
-                "root_cause": record.root_cause, "timestamp": record.created_at.isoformat() if record.created_at else "",
+                "root_cause": record.root_cause,
+                "root_cause_confidence": record.root_cause_confidence.value if record.root_cause_confidence else "medium",
+                "timestamp": record.created_at.isoformat() if record.created_at else "",
             }
         finally:
             db.close()
