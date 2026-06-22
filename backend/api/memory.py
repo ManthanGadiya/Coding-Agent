@@ -324,6 +324,15 @@ def list_archival_candidates(db: Session = Depends(get_db)):
     return {"candidates": candidates, "count": len(candidates)}
 
 
+@router.get("/stats")
+def memory_stats(db: Session = Depends(get_db)):
+    active = db.query(MemoryEntry).filter(MemoryEntry.status == MemoryStatus.ACTIVE).count()
+    archived = db.query(MemoryEntry).filter(MemoryEntry.status == MemoryStatus.ARCHIVED).count()
+    global_count = db.query(GlobalMemory).count()
+    project_count = db.query(ProjectMemory).count()
+    return {"entries": active, "archived": archived, "global": global_count, "project": project_count, "total": active + archived + global_count + project_count}
+
+
 @router.get("/retention/health")
 def retention_health(db: Session = Depends(get_db)):
     entries = db.query(MemoryEntry).filter(MemoryEntry.status == MemoryStatus.ACTIVE).all()

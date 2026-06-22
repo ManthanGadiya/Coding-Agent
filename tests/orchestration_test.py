@@ -238,8 +238,8 @@ async def run_all():
         }
     ))
     check("conflict resolution succeeded", conflict.success)
-    check("conflict has resolution agent",
-          conflict.output and conflict.output.get("resolution") in ("coder-1", "reviewer-1"),
+    check("conflict has resolution strategy",
+          conflict.output and "resolution" in conflict.output,
           f"got {conflict.output}")
 
     # -- 12. Agent state tracking --

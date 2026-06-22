@@ -2,222 +2,85 @@
 
 ## Autonomous Multi-Agent Software Engineering System
 
-CAMera is a governance-driven multi-agent software engineering system designed to plan, architect, implement, test, debug, review, learn, and improve software projects while remaining aligned with engineering quality and user goals.
-
-Unlike traditional coding assistants, CAMera is designed to operate as a coordinated engineering organization composed of specialized agents with defined responsibilities, workflows, memory systems, and governance rules.
-
----
-
-## Vision
-
-The goal of CAMera is to create a highly capable engineering system capable of:
-
-* Understanding projects deeply
-* Maintaining long-term context
-* Coordinating specialized agents
-* Producing high-quality software
-* Learning from successes and failures
-* Adapting to user goals
-* Preserving architectural consistency
-
-CAMera prioritizes:
-
-1. Correctness
-2. Quality
-3. Safety
-4. Reliability
-5. Efficiency
-
-Speed is valuable.
-
-Quality is mandatory.
-
----
-
-## What Makes CAMera Different
-
-CAMera is built around the idea that software engineering is not a single task but a collection of specialized responsibilities.
-
-Rather than relying on one general-purpose agent, CAMera coordinates multiple specialized agents that collaborate to solve problems, evaluate decisions, review outcomes, and improve over time.
-
-Key characteristics include:
-
-* Multi-agent collaboration
-* Governance-driven decision making
-* Long-term memory and context retention
-* Continuous learning and improvement
-* User-aligned behavior
-* Strong emphasis on software quality
-
----
-
-## Core Principles
-
-### Governance Before Autonomy
-
-CAMera is not designed to behave as an uncontrolled autonomous system.
-
-Learning does not imply adoption.
-
-Behavior changes require governance and review.
-
----
-
-### User Alignment
-
-The user remains the final decision maker.
-
-CAMera may:
-
-* Recommend
-* Explain
-* Challenge
-* Clarify
-
-CAMera may not:
-
-* Override
-* Manipulate
-* Enforce
-
----
-
-### Learning Through Experience
-
-CAMera continuously learns from:
-
-* Successes
-* Failures
-* Reviews
-* Feedback
-
-Failures receive higher analytical priority because they reveal weaknesses, assumptions, and improvement opportunities.
-
----
-
-### Engineering Excellence
-
-CAMera values:
-
-* Maintainability
-* Testability
-* Reliability
-* Documentation
-* Architectural Consistency
-
-over short-term convenience.
-
----
-
-## Learning and Improvement
-
-CAMera is designed to improve through structured reflection and analysis.
-
-The system evaluates outcomes, identifies mistakes, captures lessons learned, and uses those insights to improve future decisions.
-
-Learning is intended to be:
-
-* Transparent
-* Reviewable
-* Governed
-* Aligned with user goals
-
-The objective is not simply to accumulate knowledge, but to become more effective, reliable, and consistent over time.
-
----
-
-## Human-Centered Design
-
-CAMera is built to work with people, not replace them.
-
-The system is intended to:
-
-* Assist decision making
-* Accelerate development
-* Improve software quality
-* Reduce repetitive work
-* Support learning and understanding
-
-Human oversight remains essential for strategic decisions, governance changes, and major project direction.
+CAMera is a governance-driven multi-agent software engineering system — a coordinated engineering organization of specialized agents with defined responsibilities, workflows, memory, and governance.
 
 ---
 
 ## Current Status
 
-CAMera is in active development with a working backend and frontend.
+Active development. Backend + frontend working.
 
-### Backend (FastAPI)
-- **60+ API routes** across projects, tasks, agents, memory, workflows, LLM, decisions, and autonomy
-- **8 agents**: Manager (central coordinator), Architect, Planner, Coder, Reviewer, Tester, Debugger, Memory Agent
-- **Decision Engine**: 8-step evidence-based decision workflow (Understand → Gather → Inform → Constraints → Options → Evaluate → Validate → Execute) with confidence scoring (high/medium/low), risk assessment, and escalation
-- **Autonomy System**: 3 modes (Plan/Agent/Full Autonomous), 35+ capabilities with risk levels, 4-tier approval classes (None/Session/Project/Explicit), role-based permissions for all 7 agent roles, audit trail
-- **Model Router**: Local-first LLM routing (Ollama) with cloud fallback (OpenAI/Anthropic)
-- **MCP clients**: Firecrawl, GitHub, Agent Memory, MarkItDown
-- **Tools layer**: FileTool, CommandTool, BrowserTool, GitTool, DatabaseTool, DockerTool with permission/risk validation
-- **TOON serialization**: Recursive-descent TOON parser for compact internal memory representation
-- **Database**: SQLAlchemy + SQLite with auto-seeding (all 8 agents created at startup)
+### Backend (FastAPI, port 8000)
+- **149 API routes** across projects, tasks, agents, memory, workflows, LLM, decisions, learning, autonomy, tools
+- **8 agents**: Manager (coordinator), Architect, Planner, Coder, Reviewer, Tester, Debugger, Memory — all wired to **ModelRouter** for real LLM output (not stubs)
+- **ModelRouter**: 5 providers — Ollama (local), OpenAI, Anthropic, Gemini, OpenAI-compatible gateway (OpenRouter/LiteLLM/etc.)
+- **Streaming endpoint**: `POST /api/v1/llm/stream` for token-by-token LLM output
+- **Workflow Engine**: 6 workflow types, 4 complexity tiers, task classifier, step builder
+- **Learning System**: Failure analysis, lessons learned, metrics, improvement proposals — **persisted to SQLAlchemy**
+- **Knowledge Engine**: Observations, knowledge artifacts, candidate rules — **persisted**
+- **Disagreement Engine**: Strategic/operational classification, notifications, resolution — **persisted**
+- **Decision Engine**: 8-step evidence-based workflow with confidence scoring
+- **Autonomy System**: 3 modes, 35+ capability risk levels, 4-tier approval classes
+- **Weighted Memory Retrieval**: 7-factor scoring, 8 agent profiles, 9 retrieval modes
+- **Database**: SQLAlchemy + SQLite, auto-seeded at startup
 
-### Frontend (Next.js 16)
-- **5 pages**: Dashboard, Projects, Agents, Tasks, Memory
-- **Live data**: API proxy forwards `/api/*` to backend at `localhost:8000`
-- **Theme**: Dark industrial with amber accents
-- **Stack**: TypeScript, Tailwind CSS, lucide-react
-
-### Integration
-- Frontend dev: `cd frontend && npm run dev` (port 3000)
-- Backend dev: `cd backend && uvicorn backend.main:app --reload` (port 8000)
-- API proxy configured in `frontend/next.config.ts`
-
-### Workflow Engine
-- **6 workflow types**: SDLC, Feature Development, Bug Fixing, Refactoring, Release, Task Pipeline
-- **4 complexity tiers**: Simple → Moderate → Complex → Critical with escalating agent involvement
-- **Step builders**: Each workflow generates correct step sequence (agents, gates, approvals) per classification
-- **Task classifier**: Scores scope/risk/dependencies/architecture/security/research factors → complexity level
-- **API endpoints**: POST /api/v1/workflows/blueprint, POST /api/v1/workflows/classify, GET /api/v1/workflows/categories
-
-### Learning System
-- **Failure Analysis**: Record/categorize failures with severity, root cause (5 Whys), preventive actions
-- **Lessons Learned**: Create/search/promote/supersede lessons with evidence, confidence, and scope (project → project-type → global)
-- **Performance Metrics**: Weighted scoring across 8 categories (correctness, quality, reliability, testing, research, learning, governance, efficiency) with warning/critical thresholds
-- **Improvement Proposals**: Observation → evidence → benefit → risk → manager review → approve/reject
-- **API**: Full CRUD for failures, lessons, metrics, proposals under /api/v1/learning/
-
-### Weighted Memory Retrieval
-- **7-factor scoring**: context match (25%), importance (18%), confidence (15%), outcome quality (15%), frequency (10%), relationship strength (10%), recency (7%)
-- **8 agent profiles**: Manager, Architect, Planner, Coder, Tester, Debugger, Reviewer, Memory — each with weighted tag preferences
-- **9 retrieval modes**: Planning, Architecture, Implementation, Testing, Debugging, Review, Learning, Research, Optimization
-- **Knowledge Package**: Top-N memories, pattern summary, contradictions, knowledge graph, confidence score
-- **Relationship expansion**: Auto-expand to related memories across the graph
-- **Contradiction detection**: Opposite-direction keyword matching + tag overlap analysis
-- **API**: Full retrieval, expansion, profiles under /api/v1/memory-retrieval/
-
-### Frontend (Next.js 16)
+### Frontend (Next.js 16, port 3000)
 - **8 pages**: Dashboard, Projects, Agents, Tasks, Workflows, Memory, Memory Retrieval, Learning
-- **Workflows page**: Blueprint generator with step visualization, task classifier, workflow list
-- **Memory Retrieval page**: Agent-aware weighted search with factor scores, contradiction display, agent profiles
-- **Learning page**: Tabs for failures (with 5 Whys analyzer), lessons, metrics timeline, improvement proposals
-- **Sidebar**: Updated with links to all 8 pages
+- **Wired**: Tasks and Memory pages fetch from real API
+- **Dashboard**: Includes goal runner with `run_goal()` integration
+- **Dark industrial theme**, Tailwind CSS, lucide-react
 
-### Phase 1 — Manager Runtime (run_goal)
-- **`ManagerAgent.run_goal(goal)`**: End-to-end goal pipeline — classify → assess complexity → select smallest workflow → create pipeline → execute sequential steps via specialist agents → return comprehensive result with per-step outcomes
-- **`POST /api/v1/agents/run-goal`**: REST endpoint accepting `{"goal": "...", "context": {...}}`, returns pipeline_id, per-step results, success status
-- **Smallest-workflow enforcement**: Simple tasks route through Manager → Coder → Tester → Memory; complex tasks add Planner, Architect, Reviewer, Debugger as needed
-- **Step-to-agent mapping**: All 28 workflow step types mapped to agent task types via `STEP_TASK_MAP`; 8 agent roles mapped via `AGENT_NAME_MAP`
-- **Pipeline state tracking**: Uses `WorkflowController` for create/transition/status lifecycle per pipeline
-- **Phase 2 target**: Wire LLM-powered ModelRouter into `run_goal` to replace stub agent responses with real LLM-generated output
+### Manager Runtime (run_goal)
+- `ManagerAgent.run_goal(goal)`: classify → complexity → smallest workflow → execute → result
+- Step-to-agent mapping for all 28 workflow step types
 
-### Next Priorities
-- Integration testing across all subsystems
-- Agent orchestration tests (Manager running workflows through agents)
+---
+
+## Quick Start
+
+```bash
+# Backend
+cd backend
+uvicorn backend.main:app --reload --port 8000
+
+# Frontend
+cd frontend
+npm run dev
+```
+
+Configure `.env` in `backend/` with API keys for cloud providers:
+```
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GEMINI_API_KEY=...
+OPENAI_COMPATIBLE_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_COMPATIBLE_API_KEY=sk-...
+```
+
+---
+
+## Providers
+
+| Provider | Config Key | When Available |
+|----------|-----------|----------------|
+| Ollama | `OLLAMA_BASE_URL` | Always |
+| OpenAI | `OPENAI_API_KEY` | Set |
+| Anthropic | `ANTHROPIC_API_KEY` | Set |
+| Gemini | `GEMINI_API_KEY` | Set |
+| Gateway | `OPENAI_COMPATIBLE_*` | Both URL + key set |
 
 ---
 
 ## Guiding Philosophy
 
-Read first.
+1. Correctness → Quality → Safety → Reliability → Efficiency
+2. Multi-agent collaboration over monolithic agents
+3. Governance before autonomy
+4. User is the final decision maker
+5. Learn from failures, adopt through governance
 
-Understand second.
+---
 
-Act third.
+## Agent Docs
 
-Every change should leave the system more understandable, more maintainable, and more capable than before.
+Full architecture, constitution, workflows, and governance in `agent-docs/` (54 files across 9 directories).
