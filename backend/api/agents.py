@@ -81,6 +81,18 @@ async def run_workflow(workflow_data: dict):
     return {"success": result.success, "output": result.output}
 
 
+class RunGoalRequest(BaseModel):
+    goal: str
+    context: Optional[Dict[str, Any]] = None
+
+
+@router.post("/run-goal")
+async def run_goal(req: RunGoalRequest):
+    mgr = get_manager()
+    result = await mgr.run_goal(req.goal, req.context)
+    return result
+
+
 # --- Backward compat: old /orchestrator/* aliases ---
 
 @router.get("/orchestrator/status")

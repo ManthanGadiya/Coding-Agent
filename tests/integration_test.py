@@ -51,6 +51,40 @@ def test_agents():
           f"got {len(s.get('agents', {}))}")
 
 
+# ── Run Goal ──
+def test_run_goal():
+    r = client.post("/api/v1/agents/run-goal", json={
+        "goal": "Add a health check endpoint to the API",
+        "context": {"project": "test", "priority": "low"}
+    })
+    check("POST /agents/run-goal returns 200", r.status_code == 200)
+    data = r.json()
+    check("run-goal has goal", data.get("goal") == "Add a health check endpoint to the API")
+    check("run-goal has classification", bool(data.get("classification")))
+    check("run-goal has complexity", bool(data.get("complexity")))
+    check("run-goal has pipeline_id", bool(data.get("pipeline_id")))
+    check("run-goal has steps list", len(data.get("steps", [])) > 0)
+    check("run-goal has success", "success" in data)
+    check("run-goal has total_steps", data.get("total_steps", 0) > 0)
+    check("run-goal steps all have status", all("status" in s for s in data.get("steps", [])))
+
+    r2 = client.post("/api/v1/agents/run-goal", json={
+        "goal": "Fix the database connection bug causing timeout errors",
+    })
+    check("run-goal without context also works", r2.status_code == 200)
+    check("run-goal classifies debugging tasks",
+          r2.json().get("classification") == "debugging",
+          f"got {r2.json().get('classification')}")
+
+    r3 = client.post("/api/v1/agents/run-goal", json={
+        "goal": "hi",
+    })
+    check("run-goal simple goal works", r3.status_code == 200)
+    check("simple goal is complexity 1",
+          r3.json().get("complexity") == "simple",
+          f"got {r3.json().get('complexity')}")
+
+
 # ── Projects ──
 def test_projects():
     ts = str(int(time.time() * 1000))
@@ -333,6 +367,8 @@ if __name__ == "__main__":
     test_health()
     print()
     test_agents()
+    print()
+    test_run_goal()
     print()
     test_projects()
     print()
