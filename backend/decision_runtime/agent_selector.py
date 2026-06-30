@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 
 from backend.decision_runtime.registries import agent_registry, AgentCapability

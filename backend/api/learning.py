@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from backend.core.learning import LearningSystem, FailureRecordModel
 from backend.core.database import EngineSession
 from backend.core.knowledge import knowledge_engine
-from backend.models.learning import ArtifactStatus
 
 router = APIRouter()
 system = LearningSystem()

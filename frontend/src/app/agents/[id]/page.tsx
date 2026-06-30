@@ -13,7 +13,7 @@ const icons: Record<string, string> = {
 
 export default function AgentDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [data, setData] = useState({ agent: null, runtime: null, profile: null, tasks: [], loading: true });
+  const [data, setData] = useState<{ agent: any; runtime: any; profile: any; tasks: any[]; loading: boolean }>({ agent: null, runtime: null, profile: null, tasks: [], loading: true });
 
   useEffect(() => {
     Promise.all([

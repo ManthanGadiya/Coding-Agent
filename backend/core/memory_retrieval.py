@@ -1,6 +1,5 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
-import math
 
 AGENT_RETRIEVAL_PROFILES: Dict[str, Dict[str, float]] = {
     "manager": {"project_status": 1.0, "risks": 0.9, "milestones": 0.8, "dependencies": 0.7,

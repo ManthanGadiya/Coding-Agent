@@ -49,7 +49,7 @@ export default function LearningPage() {
                 placeholder="Paste problem description (one line per why)..."
                 aria-label="Problem description for 5 Whys analysis"
                 className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
-              <button type="button" onClick={async () => { const r = await api.learning.fiveWhys(why.input); setWhy((prev) => ({...prev, whys: r})); }}
+              <button type="button" onClick={async () => { const r: any = await api.learning.fiveWhys(why.input); setWhy((prev) => ({...prev, whys: r})); }}
                 className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">Analyze</button>
             </div>
             {why.whys && (
