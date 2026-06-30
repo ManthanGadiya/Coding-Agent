@@ -15,6 +15,7 @@ const nav = [
   { href: "/memory", label: "Memory", icon: "◎" },
   { href: "/memory-retrieval", label: "Retrieval", icon: "⌕" },
   { href: "/learning", label: "Learning", icon: "△" },
+  { href: "/users", label: "Users", icon: "⊕" },
   { href: "/settings", label: "Settings", icon: "≡" },
 ];
 

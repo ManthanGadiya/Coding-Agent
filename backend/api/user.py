@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from backend.core.database import get_db
 from backend.models.user import User, UserGoal, SkillLevel, GoalStatus
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(tags=["users"])
 
 
 class UserCreate(BaseModel):

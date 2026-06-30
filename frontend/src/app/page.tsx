@@ -4,15 +4,20 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 
+import { Skeleton, CardSkeleton } from "@/components/ui";
+
 export default function Dashboard() {
   const [data, setData] = useState<{ orch: any; projects: any[]; tasks: any[]; mem: any }>({ orch: null, projects: [], tasks: [], mem: null });
   const [form, setForm] = useState({ goal: "", running: false, result: null as any });
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    api.manager.status().then((d) => setData(s => ({...s, orch: d}))).catch(() => {});
-    api.projects.list().then((d: any) => setData(s => ({...s, projects: d.projects ?? d}))).catch(() => {});
-    api.tasks.list().then((d: any) => setData(s => ({...s, tasks: d.tasks ?? d}))).catch(() => {});
-    api.memory.stats().then((d) => setData(s => ({...s, mem: d}))).catch(() => {});
+    Promise.all([
+      api.manager.status().then((d) => setData(s => ({...s, orch: d}))).catch(() => {}),
+      api.projects.list().then((d: any) => setData(s => ({...s, projects: d.projects ?? d}))).catch(() => {}),
+      api.tasks.list().then((d: any) => setData(s => ({...s, tasks: d.tasks ?? d}))).catch(() => {}),
+      api.memory.stats().then((d) => setData(s => ({...s, mem: d}))).catch(() => {}),
+    ]).finally(() => setLoaded(true));
   }, []);
 
   async function runGoal() {
@@ -91,15 +96,21 @@ export default function Dashboard() {
          )}
        </div>
 
-       <div className="grid grid-cols-4 gap-4 animate-in">
-         {stats.map((s) => (
-           <div key={s.label} className="bg-card border border-border rounded-xl p-5">
-             <div className="text-2xl font-mono font-bold text-accent">{s.value}</div>
-             <div className="text-sm font-medium mt-1">{s.label}</div>
-             <div className="text-xs text-muted mt-0.5">{s.sub}</div>
-           </div>
-         ))}
-       </div>
+        <div className="grid grid-cols-4 gap-4 animate-in">
+          {!loaded ? Array.from({length: 4}).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-5 space-y-2">
+              <Skeleton className="h-7 w-16" />
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-3 w-28" />
+            </div>
+          )) : stats.map((s) => (
+            <div key={s.label} className="bg-card border border-border rounded-xl p-5">
+              <div className="text-2xl font-mono font-bold text-accent">{s.value}</div>
+              <div className="text-sm font-medium mt-1">{s.label}</div>
+              <div className="text-xs text-muted mt-0.5">{s.sub}</div>
+            </div>
+          ))}
+        </div>
 
       {data.tasks.length > 0 && (
         <div className="grid grid-cols-2 gap-4 animate-in">

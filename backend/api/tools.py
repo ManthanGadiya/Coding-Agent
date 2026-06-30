@@ -8,7 +8,7 @@ from backend.tools import (
 from backend.core.autonomy import AutonomyController, SafetyManager
 from backend.core.safety import safety_controller
 
-router = APIRouter(prefix="/tools", tags=["tools"])
+router = APIRouter(tags=["tools"])
 
 autonomy = AutonomyController()
 safety = SafetyManager()

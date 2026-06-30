@@ -6,7 +6,7 @@ from backend.skills.builtin import CodeGenerationSkill, CodeReviewSkill, TaskAna
 from backend.core.model_router import get_model_router
 from backend.tools import TOOL_REGISTRY
 
-router = APIRouter(prefix="/skills", tags=["skills"])
+router = APIRouter(tags=["skills"])
 
 
 class SkillExecuteRequest(BaseModel):

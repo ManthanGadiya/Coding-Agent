@@ -9,7 +9,7 @@ from backend.mcp import (
 )
 from backend.mcp.connector import connect_server, disconnect_server, call_tool, get_tools, get_all_tools
 
-router = APIRouter(prefix="/mcp", tags=["mcp"])
+router = APIRouter(tags=["mcp"])
 
 
 class AddServerRequest(BaseModel):
