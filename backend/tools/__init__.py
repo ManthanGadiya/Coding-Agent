@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
+from pathlib import Path
 
 
 class ToolPermission(str, Enum):
@@ -28,6 +29,17 @@ class ToolResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
+_MODE_RISK_ALLOW: Dict[str, List[ToolRiskLevel]] = {
+    "teaching": [ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM],
+    "build": [ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM, ToolRiskLevel.HIGH],
+    "autonomous": [ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM, ToolRiskLevel.HIGH, ToolRiskLevel.CRITICAL],
+}
+
+
+def mode_allows_tool(mode: str, risk: ToolRiskLevel) -> bool:
+    return risk in _MODE_RISK_ALLOW.get(mode, _MODE_RISK_ALLOW["build"])
+
+
 class BaseTool(ABC):
     def __init__(self, name: str, description: str, required_permissions: List[ToolPermission], risk_level: ToolRiskLevel = ToolRiskLevel.LOW):
         self.name = name
@@ -50,11 +62,14 @@ class BaseTool(ABC):
         return None
 
     async def safe_execute(self, agent_id: str = "", agent_role: str = "",
-                            session_id: str = "", **kwargs) -> ToolResult:
+                            session_id: str = "", mode: str = "build", **kwargs) -> ToolResult:
+        if not mode_allows_tool(mode, self.risk_level):
+            return ToolResult(success=False, error=f"Tool '{self.name}' ({self.risk_level.value}) blocked in {mode} mode")
         result = await self.execute(**kwargs)
         log_tool_use({
             "tool": self.name, "agent_id": agent_id, "agent_role": agent_role,
-            "session_id": session_id, "params": {k: v for k, v in kwargs.items()
+            "session_id": session_id, "mode": mode,
+            "params": {k: v for k, v in kwargs.items()
                                                   if k not in ("content", "password", "secret")},
             "success": result.success, "risk_level": self.risk_level.value,
         })
@@ -138,28 +153,62 @@ class FileTool(BaseTool):
             return ToolResult(success=False, error=str(e))
 
 
+ALLOWED_COMMANDS = {
+    "ls", "cat", "head", "tail", "echo", "pwd", "whoami", "date",
+    "ps", "df", "du", "find", "grep", "sort", "wc", "diff",
+    "python", "node", "npm", "npx", "pip", "cargo",
+    "git", "docker", "kubectl",
+}
+
+BLOCKED_SUBSTRINGS = {
+    "rm -rf /", "rm -rf ~", "mkfs.", "dd if=", "> /dev/",
+    "chmod 777", ":(){ :|:& };:", "sudo ", "chown ", "passwd",
+    "curl ", "wget ",
+}
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
 class CommandTool(BaseTool):
     def __init__(self):
         super().__init__(
             name="command_tool",
-            description="Execute shell commands",
+            description="Execute shell commands with sandbox restrictions",
             required_permissions=[ToolPermission.EXECUTE],
             risk_level=ToolRiskLevel.HIGH
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        import subprocess
+        import subprocess, shlex
         cmd = kwargs.get("command", "")
-        cwd = kwargs.get("cwd", ".")
-        timeout = kwargs.get("timeout", 300)
+        cwd = kwargs.get("cwd", None)
+        timeout = min(kwargs.get("timeout", 120), 300)
+        sandbox = kwargs.get("sandbox", True)
 
-        if not cmd:
+        if not cmd or not cmd.strip():
             return ToolResult(success=False, error="No command provided")
+
+        parts = shlex.split(cmd)
+        base = parts[0] if parts else ""
+        if base not in ALLOWED_COMMANDS:
+            return ToolResult(success=False, error=f"Command '{base}' not in allowlist")
+
+        lower = cmd.lower()
+        for banned in BLOCKED_SUBSTRINGS:
+            if banned in lower:
+                return ToolResult(success=False, error=f"Command blocked: contains forbidden pattern")
+
+        if sandbox and cwd:
+            resolved = Path(cwd).resolve()
+            try:
+                resolved.relative_to(PROJECT_ROOT)
+            except ValueError:
+                return ToolResult(success=False, error=f"Path '{cwd}' outside project root")
 
         try:
             result = subprocess.run(
-                cmd if isinstance(cmd, list) else cmd.split(),
-                capture_output=True, text=True, cwd=cwd, timeout=timeout
+                parts, capture_output=True, text=True,
+                cwd=cwd or str(PROJECT_ROOT), timeout=timeout
             )
             return ToolResult(
                 success=result.returncode == 0,
@@ -336,6 +385,40 @@ class WebTool(BaseTool):
         if not url:
             return self._search_web(f"{target} documentation")
         return await self._fetch(url)
+
+
+class ToolChain:
+    def __init__(self, steps: List[Dict], mode: str = "build"):
+        self.steps = steps
+        self.mode = mode
+
+    async def run(self, initial: Dict = None) -> List[ToolResult]:
+        ctx = dict(initial or {})
+        results = []
+        for step in self.steps:
+            tool = get_tool(step["tool"])
+            if not tool:
+                results.append(ToolResult(success=False, error=f"Tool '{step['tool']}' not found"))
+                break
+            params = dict(step.get("params", {}))
+            for k, v in step.get("map", {}).items():
+                if isinstance(v, str) and v.startswith("$"):
+                    params[k] = ctx.get(v[1:], v)
+            result = await tool.safe_execute(mode=self.mode, **params)
+            results.append(result)
+            if not result.success:
+                break
+            ctx.update(result.data or {})
+        return results
+
+
+async def run_parallel(tool_name: str, items: List[Dict], mode: str = "build") -> List[ToolResult]:
+    tool = get_tool(tool_name)
+    if not tool:
+        return [ToolResult(success=False, error=f"Tool '{tool_name}' not found")]
+    import asyncio
+    tasks = [tool.safe_execute(mode=mode, **item) for item in items]
+    return await asyncio.gather(*tasks)
 
 
 TOOL_REGISTRY: Dict[str, BaseTool] = {
