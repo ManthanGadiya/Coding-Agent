@@ -2,7 +2,7 @@ from sqlalchemy import String, Text, JSON, Integer, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column
 from backend.models.base import Base, TimestampMixin, UUIDMixin
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 
 
 class SkillLevel(str, Enum):

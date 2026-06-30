@@ -5,7 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 
 export default function Dashboard() {
-  const [data, setData] = useState({ orch: null, projects: [] as any[], tasks: [] as any[], mem: null });
+  const [data, setData] = useState<{ orch: any; projects: any[]; tasks: any[]; mem: any }>({ orch: null, projects: [], tasks: [], mem: null });
   const [form, setForm] = useState({ goal: "", running: false, result: null as any });
 
   useEffect(() => {

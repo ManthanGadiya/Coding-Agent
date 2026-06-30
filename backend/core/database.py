@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from backend.config.settings import get_settings
 from backend.models.base import Base
-from backend.models.agent import Agent, AgentType, AgentStatus
+from backend.models.agent import Agent, AgentType
 from typing import Generator
 
 settings = get_settings()

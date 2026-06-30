@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, ProjectResponse } from "@/lib/api";
+import { api } from "@/lib/api";
 
 export default function Projects() {
-  const [projects, setProjects] = useState<ProjectResponse[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");

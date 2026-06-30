@@ -38,7 +38,7 @@ export default function Tasks() {
     try {
       const f = filterValue ?? data.filter;
       const params = f ? `status=${f}` : "";
-      const d = await api.tasks.list(params);
+      const d: any = await api.tasks.list(params);
       setData(x => ({...x, tasks: Array.isArray(d) ? d : d.tasks ?? []}));
     } catch { setData(d => ({...d, tasks: []})); }
     finally { setData(d => ({...d, loading: false})); }

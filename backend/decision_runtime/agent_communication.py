@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 from backend.decision_runtime.event_bus import event_bus, Event, EventPriority
 

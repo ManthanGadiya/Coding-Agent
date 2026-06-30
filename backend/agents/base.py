@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, AsyncGenerator
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 import asyncio
@@ -104,9 +104,7 @@ class BaseAgent(ABC):
         while self._running:
             try:
                 message = await asyncio.wait_for(self.message_queue.get(), timeout=1.0)
-                response = await self.handle_message(message)
-                if response:
-                    pass
+                await self.handle_message(message)
             except asyncio.TimeoutError:
                 continue
             except Exception as e:

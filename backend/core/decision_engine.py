@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from enum import Enum
 from datetime import datetime
 
@@ -113,7 +113,6 @@ class DecisionEngine:
 
     def _score_option(self, opt: Dict, s: Dict) -> Dict:
         score = 0
-        notes = []
 
         if opt.get("maintainability", 5) >= 7:
             score += 2
@@ -139,7 +138,7 @@ class DecisionEngine:
         if opt.get("correctness", 5) >= 7:
             score += 1
 
-        return {"label": opt.get("label", ""), "score": score, "notes": notes}
+        return {"label": opt.get("label", ""), "score": score}
 
     def _choose(self, s: Dict) -> Dict:
         if not s.get("evaluations"):
