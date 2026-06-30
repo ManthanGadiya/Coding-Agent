@@ -6,6 +6,7 @@ import logging
 
 from backend.config.settings import get_settings
 from backend.core.database import init_db
+from backend.decision_runtime import init_runtime, shutdown_runtime
 
 settings = get_settings()
 from backend.api import router as api_router
@@ -19,7 +20,9 @@ async def lifespan(app: FastAPI):
     logger.info("Starting CAMera...")
     init_db()
     logger.info("Database initialized")
+    await init_runtime(mode="build")
     yield
+    await shutdown_runtime()
     logger.info("Shutting down CAMera...")
 
 
