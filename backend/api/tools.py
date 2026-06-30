@@ -21,6 +21,7 @@ class ToolExecuteRequest(BaseModel):
     agent_id: str = ""
     agent_role: str = ""
     session_id: str = ""
+    mode: str = "build"
 
 
 @router.post("/execute")
@@ -31,11 +32,40 @@ async def execute_tool(req: ToolExecuteRequest):
 
     result = await tool.safe_execute(
         agent_id=req.agent_id, agent_role=req.agent_role,
-        session_id=req.session_id, **req.params
+        session_id=req.session_id, mode=req.mode, **req.params
     )
     return {"success": result.success, "data": result.data,
             "error": result.error, "warnings": result.warnings,
             "metadata": result.metadata}
+
+
+class ChainExecuteRequest(BaseModel):
+    steps: list = []
+    initial: dict = {}
+    mode: str = "build"
+
+
+@router.post("/chain")
+async def execute_chain(req: ChainExecuteRequest):
+    from backend.tools import ToolChain
+    chain = ToolChain(req.steps, mode=req.mode)
+    results = await chain.run(req.initial)
+    return {"results": [{"success": r.success, "data": r.data,
+                          "error": r.error} for r in results]}
+
+
+class ParallelExecuteRequest(BaseModel):
+    tool: str
+    items: list = []
+    mode: str = "build"
+
+
+@router.post("/parallel")
+async def execute_parallel(req: ParallelExecuteRequest):
+    from backend.tools import run_parallel
+    results = await run_parallel(req.tool, req.items, mode=req.mode)
+    return {"results": [{"success": r.success, "data": r.data,
+                          "error": r.error} for r in results]}
 
 
 @router.get("/list")
@@ -43,7 +73,7 @@ async def list_tools():
     return {
         "tools": [{"name": t.name, "description": t.description,
                     "risk_level": t.risk_level.value,
-                    "capabilities": t.required_capabilities}
+                    "permissions": [p.value for p in t.required_permissions]}
                   for t in TOOL_REGISTRY.values()]
     }
 
