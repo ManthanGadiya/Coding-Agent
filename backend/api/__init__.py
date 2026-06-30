@@ -13,6 +13,8 @@ from backend.api.memory_retrieval import router as memory_retrieval_router
 from backend.api.tools import router as tools_router
 from backend.api.user import router as user_router
 from backend.api.mcp import router as mcp_router
+from backend.api.skills import router as skills_router
+import backend.skills.builtin  # noqa: register built-in skills
 
 router = APIRouter()
 
@@ -29,3 +31,4 @@ router.include_router(memory_retrieval_router, prefix="/memory-retrieval", tags=
 router.include_router(tools_router, prefix="/tools", tags=["tools"])
 router.include_router(user_router, prefix="/users", tags=["users"])
 router.include_router(mcp_router, prefix="/mcp", tags=["mcp"])
+router.include_router(skills_router, prefix="/skills", tags=["skills"])
