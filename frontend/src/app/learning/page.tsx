@@ -12,18 +12,18 @@ export default function LearningPage() {
 
   useEffect(() => {
     Promise.all([
-      api.learning.failures().then((d) => setData(p => ({...p, failures: d}))).catch(() => {}),
-      api.learning.lessons("status=active").then((d) => setData(p => ({...p, lessons: d}))).catch(() => {}),
-      api.learning.metrics().then((d) => setData(p => ({...p, metrics: d}))).catch(() => {}),
-      api.learning.proposals().then((d) => setData(p => ({...p, proposals: d}))).catch(() => {}),
+      api.learning.failures().then((d: any) => setData(p => ({...p, failures: Array.isArray(d) ? d : []}))).catch(() => {}),
+      api.learning.lessons("status=active").then((d: any) => setData(p => ({...p, lessons: Array.isArray(d) ? d : []}))).catch(() => {}),
+      api.learning.metrics().then((d: any) => setData(p => ({...p, metrics: Array.isArray(d) ? d : []}))).catch(() => {}),
+      api.learning.proposals().then((d: any) => setData(p => ({...p, proposals: Array.isArray(d) ? d : []}))).catch(() => {}),
     ]).finally(() => setLoaded(true));
   }, []);
 
   useEffect(() => {
     if (data.tab === "knowledge" || data.tab === "rules") {
-      api.learning.artifacts().then((d) => setData(p => ({...p, artifacts: d}))).catch(() => {});
-      api.learning.rulesPending().then((d) => setData(p => ({...p, pendingRules: d}))).catch(() => {});
-      api.learning.rulesApproved().then((d) => setData(p => ({...p, approvedRules: d}))).catch(() => {});
+      api.learning.artifacts().then((d: any) => setData(p => ({...p, artifacts: Array.isArray(d) ? d : []}))).catch(() => {});
+      api.learning.rulesPending().then((d: any) => setData(p => ({...p, pendingRules: Array.isArray(d) ? d : []}))).catch(() => {});
+      api.learning.rulesApproved().then((d: any) => setData(p => ({...p, approvedRules: Array.isArray(d) ? d : []}))).catch(() => {});
     }
   }, [data.tab]);
 
@@ -39,14 +39,14 @@ export default function LearningPage() {
   function reviewProposal(id: string) {
     const note = proposalReview[id] || "";
     api.learning.reviewProposal(id, { reviewed_by: "user", notes: note }).then(() => {
-      api.learning.proposals().then((d) => setData(p => ({...p, proposals: d}))).catch(() => {});
+      api.learning.proposals().then((d: any) => setData(p => ({...p, proposals: Array.isArray(d) ? d : []}))).catch(() => {});
     }).catch(() => {});
   }
 
   function reviewRule(id: string, approved: boolean) {
     api.learning.reviewRule(id, approved).then(() => {
-      api.learning.rulesPending().then((d) => setData(p => ({...p, pendingRules: d}))).catch(() => {});
-      api.learning.rulesApproved().then((d) => setData(p => ({...p, approvedRules: d}))).catch(() => {});
+      api.learning.rulesPending().then((d: any) => setData(p => ({...p, pendingRules: Array.isArray(d) ? d : []}))).catch(() => {});
+      api.learning.rulesApproved().then((d: any) => setData(p => ({...p, approvedRules: Array.isArray(d) ? d : []}))).catch(() => {});
     }).catch(() => {});
   }
 
@@ -54,7 +54,7 @@ export default function LearningPage() {
     if (!createLesson.topic.trim() || !createLesson.description.trim()) return;
     api.learning.createLesson({ topic: createLesson.topic.trim(), description: createLesson.description.trim(), scope: createLesson.scope }).then(() => {
       setCreateLesson({ show: false, topic: "", description: "", scope: "local" });
-      api.learning.lessons("status=active").then((d) => setData(p => ({...p, lessons: d}))).catch(() => {});
+      api.learning.lessons("status=active").then((d: any) => setData(p => ({...p, lessons: Array.isArray(d) ? d : []}))).catch(() => {});
     }).catch(() => {});
   }
 
@@ -200,7 +200,7 @@ export default function LearningPage() {
               ))}</div>
             )}
           </div>
-          <button type="button" onClick={() => api.learning.promoteKnowledge().then(() => api.learning.artifacts().then(d => setData(p => ({...p, artifacts: d})))).catch(() => {})}
+          <button type="button" onClick={() => api.learning.promoteKnowledge().then(() => api.learning.artifacts().then((d: any) => setData(p => ({...p, artifacts: Array.isArray(d) ? d : []})))).catch(() => {})}
             className="px-4 py-2 bg-surface border border-border rounded-lg text-sm">Promote Knowledge</button>
         </div>
       )}
