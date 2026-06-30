@@ -35,8 +35,9 @@ class ModeController:
     def set_mode(self, mode: EnvironmentMode):
         self._mode = mode
 
-    def priorities(self) -> List[str]:
-        return MODE_PRIORITIES.get(self._mode, MODE_PRIORITIES[EnvironmentMode.BUILD])
+    def priorities(self, mode: Optional[EnvironmentMode] = None) -> List[str]:
+        m = mode if mode is not None else self._mode
+        return MODE_PRIORITIES.get(m, MODE_PRIORITIES[EnvironmentMode.BUILD])
 
     def rank(self, objective: str) -> int:
         prio = self.priorities()
