@@ -82,4 +82,104 @@ export const api = {
     resume: (id: string) => fetchJSON<{status: string}>(`/api/v1/workflows/executor/instances/${id}/resume`, { method: "POST" }),
     cancel: (id: string) => fetchJSON<{status: string}>(`/api/v1/workflows/executor/instances/${id}/cancel`, { method: "POST" }),
   },
+
+  autonomy: {
+    mode: () => fetchJSON<{mode: string}>(`/api/v1/autonomy/mode`),
+    setMode: (mode: string) => fetchJSON<{mode: string}>("/api/v1/autonomy/mode", { method: "POST", body: JSON.stringify({ mode }) }),
+    registry: () => fetchJSON<unknown[]>("/api/v1/autonomy/registry"),
+    audit: () => fetchJSON<unknown[]>("/api/v1/autonomy/audit"),
+    check: (action: string, resource: string) =>
+      fetchJSON<{allowed: boolean}>("/api/v1/autonomy/check", { method: "POST", body: JSON.stringify({ action, resource }) }),
+    capabilities: (role: string) => fetchJSON<unknown>(`/api/v1/autonomy/capabilities/${role}`),
+  },
+
+  llm: {
+    models: () => fetchJSON<string[]>("/api/v1/llm/models"),
+    select: (model: string) => fetchJSON<unknown>("/api/v1/llm/select", { method: "POST", body: JSON.stringify({ model }) }),
+  },
+
+  mcp: {
+    servers: () => fetchJSON<unknown[]>("/api/v1/mcp/servers"),
+    add: (name: string, config: Record<string, unknown>) =>
+      fetchJSON<unknown>("/api/v1/mcp/servers", { method: "POST", body: JSON.stringify({ name, ...config }) }),
+    remove: (name: string) => fetchJSON<unknown>(`/api/v1/mcp/servers/${encodeURIComponent(name)}`, { method: "DELETE" }),
+    connect: (name: string) => fetchJSON<unknown>(`/api/v1/mcp/servers/${encodeURIComponent(name)}/connect`, { method: "POST" }),
+    disconnect: (name: string) => fetchJSON<unknown>(`/api/v1/mcp/servers/${encodeURIComponent(name)}/disconnect`, { method: "POST" }),
+    tools: (name: string) => fetchJSON<unknown[]>(`/api/v1/mcp/servers/${encodeURIComponent(name)}/tools`),
+    allTools: () => fetchJSON<unknown[]>("/api/v1/mcp/tools"),
+    call: (server: string, tool: string, args: Record<string, unknown>) =>
+      fetchJSON<unknown>("/api/v1/mcp/call", { method: "POST", body: JSON.stringify({ server, tool, args }) }),
+    log: () => fetchJSON<unknown[]>("/api/v1/mcp/log"),
+  },
+
+  tools: {
+    list: () => fetchJSON<unknown[]>("/api/v1/tools/list"),
+    execute: (name: string, args: Record<string, unknown>) =>
+      fetchJSON<unknown>("/api/v1/tools/execute", { method: "POST", body: JSON.stringify({ name, args }) }),
+    chain: (steps: unknown[]) =>
+      fetchJSON<unknown>("/api/v1/tools/chain", { method: "POST", body: JSON.stringify({ steps }) }),
+    parallel: (tool: string, paramsList: unknown[]) =>
+      fetchJSON<unknown[]>("/api/v1/tools/parallel", { method: "POST", body: JSON.stringify({ tool, params_list: paramsList }) }),
+    audit: () => fetchJSON<unknown[]>("/api/v1/tools/audit"),
+  },
+
+  skills: {
+    list: () => fetchJSON<unknown[]>("/api/v1/skills/list"),
+    execute: (name: string, args: Record<string, unknown>) =>
+      fetchJSON<unknown>("/api/v1/skills/execute", { method: "POST", body: JSON.stringify({ name, args }) }),
+    log: () => fetchJSON<unknown[]>("/api/v1/skills/log"),
+  },
+
+  projects: {
+    list: () => fetchJSON<{ projects: unknown[]; total: number }>("/api/v1/projects"),
+    create: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/projects", { method: "POST", body: JSON.stringify(data) }),
+    get: (id: string) => fetchJSON<unknown>(`/api/v1/projects/${id}`),
+    update: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: string) => fetchJSON<unknown>(`/api/v1/projects/${id}`, { method: "DELETE" }),
+    stats: (id: string) => fetchJSON<unknown>(`/api/v1/projects/${id}/stats`),
+  },
+
+  releases: {
+    candidate: (version: string, release_type: string) =>
+      fetchJSON<unknown>("/api/v1/workflows/release/candidate", { method: "POST", body: JSON.stringify({ version, release_type }) }),
+    getCandidate: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/release/candidate/${id}`),
+    setCheck: (id: string, check_name: string, passed: boolean) =>
+      fetchJSON<unknown>(`/api/v1/workflows/release/candidate/${id}/check?check_name=${encodeURIComponent(check_name)}&passed=${passed}`, { method: "POST" }),
+    approve: (id: string, by: string) =>
+      fetchJSON<unknown>(`/api/v1/workflows/release/candidate/${id}/approve?approved_by=${encodeURIComponent(by)}`, { method: "POST" }),
+    deploy: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/release/candidate/${id}/deploy`, { method: "POST" }),
+    rollback: (id: string, reason?: string) =>
+      fetchJSON<unknown>(`/api/v1/workflows/release/candidate/${id}/rollback${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`, { method: "POST" }),
+    strategies: () => fetchJSON<{strategies: string[]}>("/api/v1/workflows/release/strategies"),
+    selectStrategy: (id: string, strategy: string) =>
+      fetchJSON<unknown>(`/api/v1/workflows/release/candidate/${id}/strategy?strategy=${encodeURIComponent(strategy)}`, { method: "POST" }),
+  },
+
+  pipelines: {
+    create: (category: string, complexity: string) =>
+      fetchJSON<unknown>("/api/v1/workflows/pipeline", { method: "POST", body: JSON.stringify({ category, complexity }) }),
+    get: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/pipeline/${id}`),
+    listActive: () => fetchJSON<{pipelines: unknown[]; count: number}>("/api/v1/workflows/pipeline/list/active"),
+    transition: (id: string, status: string, output?: Record<string, unknown>) =>
+      fetchJSON<unknown>(`/api/v1/workflows/pipeline/${id}/transition`, { method: "POST", body: JSON.stringify({ status, output: output || {} }) }),
+    unblock: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/pipeline/${id}/unblock`, { method: "POST" }),
+    rollback: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/pipeline/${id}/rollback`, { method: "POST" }),
+  },
+
+  decisions: {
+    decide: (context: string, options: unknown[]) =>
+      fetchJSON<unknown>("/api/v1/decisions/decide", { method: "POST", body: JSON.stringify({ context, options }) }),
+    history: () => fetchJSON<unknown[]>("/api/v1/decisions/history"),
+    assessRisk: (action: string) =>
+      fetchJSON<unknown>("/api/v1/decisions/assess-risk", { method: "POST", body: JSON.stringify({ action }) }),
+  },
+
+  tasks: {
+    list: (params?: string) => fetchJSON<TaskResponse[]>(`/api/v1/tasks${params ? `?${params}` : ""}`),
+    create: (data: { title: string; description?: string; task_type?: string }) => fetchJSON<TaskResponse>("/api/v1/tasks", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: TaskUpdate) => fetchJSON<TaskResponse>(`/api/v1/tasks/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    get: (id: string) => fetchJSON<TaskResponse>(`/api/v1/tasks/${id}`),
+    delete: (id: string) => fetchJSON<unknown>(`/api/v1/tasks/${id}`, { method: "DELETE" }),
+    logs: (id: string) => fetchJSON<unknown[]>(`/api/v1/tasks/${id}/logs`),
+  },
 };
