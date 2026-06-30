@@ -25,22 +25,11 @@ export interface TaskUpdate { title?: string; description?: string; status?: str
 export interface ManagerStatusResponse { agent_id: string; name: string; state: string; capabilities: string[]; tasks_completed: number; tasks_failed: number; }
 
 export const api = {
-  projects: {
-    list: () => fetchJSON<{ projects: unknown[]; total: number }>("/api/v1/projects"),
-    create: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/projects", { method: "POST", body: JSON.stringify(data) }),
-  },
-
   agents: {
     get: (id: string) => fetchJSON<unknown>(`/api/v1/agents/${id}`),
     status: (id: string) => fetchJSON<ManagerStatusResponse>(`/api/v1/agents/${id}/status`),
     runGoal: (goal: string, context?: Record<string, unknown>) =>
       fetchJSON<unknown>("/api/v1/agents/run-goal", { method: "POST", body: JSON.stringify({ goal, context }) }),
-  },
-
-  tasks: {
-    list: (params?: string) => fetchJSON<TaskResponse[]>(`/api/v1/tasks${params ? `?${params}` : ""}`),
-    create: (data: { title: string; description?: string; task_type?: string }) => fetchJSON<TaskResponse>("/api/v1/tasks", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: string, data: TaskUpdate) => fetchJSON<TaskResponse>(`/api/v1/tasks/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   },
 
   memory: {

@@ -101,6 +101,37 @@ export default function Dashboard() {
          ))}
        </div>
 
+      {data.tasks.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 animate-in">
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h2 className="text-sm font-semibold mb-3">Task Status</h2>
+            <ChartBar label="Completed" count={data.tasks.filter((t: any) => t.status === "completed").length} total={data.tasks.length} color="bg-success" />
+            <ChartBar label="In Progress" count={data.tasks.filter((t: any) => t.status === "in_progress").length} total={data.tasks.length} color="bg-accent" />
+            <ChartBar label="Pending" count={data.tasks.filter((t: any) => t.status === "pending" || t.status === "open").length} total={data.tasks.length} color="bg-yellow-500" />
+            <ChartBar label="Failed" count={data.tasks.filter((t: any) => t.status === "failed").length} total={data.tasks.length} color="bg-red-500" />
+          </div>
+          {data.orch?.agents && (
+            <div className="bg-card border border-border rounded-xl p-5">
+              <h2 className="text-sm font-semibold mb-3">Agent Performance</h2>
+              {Object.entries(data.orch.agents).map(([id, a]: any) => {
+                const total = (a.tasks_completed || 0) + (a.tasks_failed || 0);
+                return (
+                  <div key={id} className="mb-3">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-mono">{id.replace("-1", "")}</span>
+                      <span className="text-muted">{a.tasks_completed ?? 0}/{total} ({total ? Math.round((a.tasks_completed || 0) / total * 100) : 0}%)</span>
+                    </div>
+                    <div className="h-2 bg-surface rounded-full overflow-hidden">
+                      {total > 0 && <div className="h-full bg-success rounded-full transition-all" style={{ width: `${((a.tasks_completed || 0) / total) * 100}%` }} />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {data.orch?.agents && (
         <div className="animate-in">
           <h2 className="text-lg font-semibold mb-3">Agents</h2>
@@ -119,6 +150,21 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ChartBar({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
+  const pct = total > 0 ? (count / total) * 100 : 0;
+  return (
+    <div className="mb-2">
+      <div className="flex justify-between text-xs mb-1">
+        <span>{label}</span>
+        <span className="text-muted">{count}</span>
+      </div>
+      <div className="h-2 bg-surface rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
