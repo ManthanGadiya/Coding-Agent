@@ -4,26 +4,21 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
 export default function LearningPage() {
-  const [tab, setTab] = useState<"failures" | "lessons" | "metrics" | "proposals">("failures");
-  const [failures, setFailures] = useState<any[]>([]);
-  const [lessons, setLessons] = useState<any[]>([]);
-  const [metrics, setMetrics] = useState<any[]>([]);
-  const [proposals, setProposals] = useState<any[]>([]);
-  const [whys, setWhys] = useState<any[] | null>(null);
-  const [whyInput, setWhyInput] = useState("");
+  const [data, setData] = useState<{tab: "failures" | "lessons" | "metrics" | "proposals"; failures: any[]; lessons: any[]; metrics: any[]; proposals: any[]}>({tab: "failures", failures: [], lessons: [], metrics: [], proposals: []});
+  const [why, setWhy] = useState<{whys: any[] | null; input: string}>({whys: null, input: ""});
 
   useEffect(() => {
-    api.learning.failures().then(setFailures).catch(() => {});
-    api.learning.lessons("status=active").then(setLessons).catch(() => {});
-    api.learning.metrics().then(setMetrics).catch(() => {});
-    api.learning.proposals().then(setProposals).catch(() => {});
+    api.learning.failures().then((d) => setData((prev) => ({...prev, failures: d}))).catch(() => {});
+    api.learning.lessons("status=active").then((d) => setData((prev) => ({...prev, lessons: d}))).catch(() => {});
+    api.learning.metrics().then((d) => setData((prev) => ({...prev, metrics: d}))).catch(() => {});
+    api.learning.proposals().then((d) => setData((prev) => ({...prev, proposals: d}))).catch(() => {});
   }, []);
 
   const tabs = [
-    { key: "failures" as const, label: "Failures", count: failures.length },
-    { key: "lessons" as const, label: "Lessons", count: lessons.length },
-    { key: "metrics" as const, label: "Metrics", count: metrics.length },
-    { key: "proposals" as const, label: "Proposals", count: proposals.length },
+    { key: "failures" as const, label: "Failures", count: data.failures.length },
+    { key: "lessons" as const, label: "Lessons", count: data.lessons.length },
+    { key: "metrics" as const, label: "Metrics", count: data.metrics.length },
+    { key: "proposals" as const, label: "Proposals", count: data.proposals.length },
   ];
 
   return (
@@ -35,9 +30,9 @@ export default function LearningPage() {
 
       <div className="flex gap-2 border-b border-border pb-2 animate-in">
         {tabs.map((t) => (
-          <button key={t.key} type="button" onClick={() => setTab(t.key)}
+          <button key={t.key} type="button" onClick={() => setData((prev) => ({...prev, tab: t.key}))}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              tab === t.key ? "bg-accent/10 text-accent" : "text-muted hover:text-foreground"
+              data.tab === t.key ? "bg-accent/10 text-accent" : "text-muted hover:text-foreground"
             }`}
           >
             {t.label} <span className="text-xs font-mono ml-1 opacity-60">{t.count}</span>
@@ -45,28 +40,28 @@ export default function LearningPage() {
         ))}
       </div>
 
-      {tab === "failures" && (
+      {data.tab === "failures" && (
         <div className="space-y-3 animate-in">
           <div className="bg-card border border-border rounded-xl p-5">
             <h2 className="text-sm font-semibold mb-3">5 Whys Analysis</h2>
             <div className="flex gap-2">
-              <input value={whyInput} onChange={(e) => setWhyInput(e.target.value)}
+              <input value={why.input} onChange={(e) => setWhy((prev) => ({...prev, input: e.target.value}))}
                 placeholder="Paste problem description (one line per why)..."
                 aria-label="Problem description for 5 Whys analysis"
                 className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
-              <button type="button" onClick={async () => { const r = await api.learning.fiveWhys(whyInput); setWhys(r); }}
+              <button type="button" onClick={async () => { const r = await api.learning.fiveWhys(why.input); setWhy((prev) => ({...prev, whys: r})); }}
                 className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">Analyze</button>
             </div>
-            {whys && (
+            {why.whys && (
               <div className="mt-3 space-y-1">
-                {whys.map((w: any, i: number) => (
+                {why.whys.map((w: any, i: number) => (
                   <div key={w.question} className="flex gap-2 text-sm"><span className="text-accent font-mono shrink-0">{w.question}:</span><span>{w.answer}</span></div>
                 ))}
               </div>
             )}
           </div>
-          {failures.length === 0 && <p className="text-sm text-muted">No failures recorded.</p>}
-          {failures.map((f: any) => (
+          {data.failures.length === 0 && <p className="text-sm text-muted">No failures recorded.</p>}
+          {data.failures.map((f: any) => (
             <div key={f.failure_id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-mono text-muted">{f.failure_id}</span>
@@ -89,10 +84,10 @@ export default function LearningPage() {
         </div>
       )}
 
-      {tab === "lessons" && (
+      {data.tab === "lessons" && (
         <div className="space-y-3 animate-in">
-          {lessons.length === 0 && <p className="text-sm text-muted">No active lessons.</p>}
-          {lessons.map((l: any) => (
+          {data.lessons.length === 0 && <p className="text-sm text-muted">No active lessons.</p>}
+          {data.lessons.map((l: any) => (
             <div key={l.lesson_id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-mono text-muted">{l.lesson_id}</span>
@@ -110,11 +105,11 @@ export default function LearningPage() {
         </div>
       )}
 
-      {tab === "metrics" && (
+      {data.tab === "metrics" && (
         <div className="animate-in">
-          {metrics.length === 0 ? <p className="text-sm text-muted">No metrics recorded.</p> : (
+          {data.metrics.length === 0 ? <p className="text-sm text-muted">No metrics recorded.</p> : (
             <div className="space-y-3">
-              {metrics.slice().reverse().map((m: any) => (
+              {data.metrics.slice().reverse().map((m: any) => (
                 <div key={m.timestamp ?? m.id} className="bg-card border border-border rounded-xl p-4">
                   <div className="text-xs font-mono text-muted mb-2">{m.timestamp}</div>
                   <div className="text-2xl font-mono font-bold text-accent">{m.overall}</div>
@@ -130,10 +125,10 @@ export default function LearningPage() {
         </div>
       )}
 
-      {tab === "proposals" && (
+      {data.tab === "proposals" && (
         <div className="space-y-3 animate-in">
-          {proposals.length === 0 && <p className="text-sm text-muted">No improvement proposals.</p>}
-          {proposals.map((p: any) => (
+          {data.proposals.length === 0 && <p className="text-sm text-muted">No improvement proposals.</p>}
+          {data.proposals.map((p: any) => (
             <div key={p.proposal_id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-mono text-muted">{p.proposal_id}</span>
