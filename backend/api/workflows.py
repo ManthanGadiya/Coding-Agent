@@ -219,6 +219,60 @@ async def execute_workflow(workflow_id: str, db: Session = Depends(get_db)):
     return {"workflow": wf, "execution_result": {"success": result.success, "output": result.output}}
 
 
+class ExecutorRunRequest(BaseModel):
+    name: str
+    context: Dict[str, Any] = {}
+
+
+@router.post("/executor/run")
+async def executor_run(req: ExecutorRunRequest):
+    from backend.decision_runtime.workflow_executor import workflow_executor
+    result = await workflow_executor.execute_async(req.name, req.context)
+    return result
+
+
+@router.get("/executor/instances")
+def executor_instances(status: Optional[str] = None):
+    from backend.decision_runtime.workflow_executor import workflow_executor
+    return {"instances": workflow_executor.list_instances(status)}
+
+
+@router.get("/executor/instances/{instance_id}")
+def executor_instance(instance_id: str):
+    from backend.decision_runtime.workflow_executor import workflow_executor
+    state = workflow_executor.get_state(instance_id)
+    if not state:
+        raise HTTPException(404, "Instance not found")
+    return state
+
+
+@router.post("/executor/instances/{instance_id}/pause")
+def executor_pause(instance_id: str):
+    from backend.decision_runtime.workflow_executor import workflow_executor
+    ok = workflow_executor.pause(instance_id)
+    if not ok:
+        raise HTTPException(400, "Instance not running or not found")
+    return {"status": "paused"}
+
+
+@router.post("/executor/instances/{instance_id}/resume")
+def executor_resume(instance_id: str):
+    from backend.decision_runtime.workflow_executor import workflow_executor
+    ok = workflow_executor.resume(instance_id)
+    if not ok:
+        raise HTTPException(400, "Instance not paused or not found")
+    return {"status": "resumed"}
+
+
+@router.post("/executor/instances/{instance_id}/cancel")
+def executor_cancel(instance_id: str):
+    from backend.decision_runtime.workflow_executor import workflow_executor
+    ok = workflow_executor.cancel(instance_id)
+    if not ok:
+        raise HTTPException(400, "Instance not found")
+    return {"status": "cancelled"}
+
+
 @router.post("/{workflow_id}/pause")
 def pause_workflow(workflow_id: str, db: Session = Depends(get_db)):
     wf = db.query(Workflow).filter(Workflow.id == workflow_id).first()
