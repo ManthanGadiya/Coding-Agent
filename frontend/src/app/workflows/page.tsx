@@ -7,10 +7,19 @@ const CATEGORIES = ["sdlc", "feature", "bug_fix", "refactor", "release", "task_p
 const COMPLEXITIES = ["simple", "moderate", "complex", "critical"];
 
 export default function WorkflowsPage() {
-  const [ui, setUi] = useState<{tab: "blueprint" | "list"; cat: string; complexity: string; blueprint: any; workflows: any[]}>({tab: "blueprint" as "blueprint" | "list", cat: "feature", complexity: "moderate", blueprint: null, workflows: []});
+  const [ui, setUi] = useState<{tab: "blueprint" | "list" | "executor"; cat: string; complexity: string; blueprint: any; workflows: any[]}>({tab: "blueprint" as "blueprint" | "list" | "executor", cat: "feature", complexity: "moderate", blueprint: null, workflows: []});
   const [classify, setClassify] = useState<{input: {scope: string; risk: string; deps: number; arch: boolean; sec: boolean; research: boolean}; result: any}>({input: {scope: "medium", risk: "medium", deps: 0, arch: false, sec: false, research: false}, result: null});
+  const [execInstances, setExecInstances] = useState<any[]>([]);
+  const [selectedInst, setSelectedInst] = useState<any>(null);
 
   useEffect(() => { api.workflows.list().then((d) => setUi((prev) => ({...prev, workflows: d}))).catch(() => {}); }, []);
+  useEffect(() => { api.executor.instances().then((d) => setExecInstances(d.instances)).catch(() => {}); }, []);
+
+  function refreshExec() { api.executor.instances().then((d) => setExecInstances(d.instances)).catch(() => {}); }
+  function loadExecDetail(id: string) { api.executor.get(id).then(setSelectedInst).catch(() => {}); }
+  function execAction(id: string, action: "pause" | "resume" | "cancel") {
+    api.executor[action](id).then(() => { refreshExec(); if (selectedInst?.instance_id === id) loadExecDetail(id); }).catch(() => {});
+  }
 
   async function loadBlueprint() {
     const bp = await api.workflows.blueprint({ category: ui.cat, complexity: ui.complexity });
@@ -38,6 +47,8 @@ export default function WorkflowsPage() {
           className={`px-4 py-2 rounded-lg text-sm font-medium ${ui.tab === "blueprint" ? "bg-accent/10 text-accent" : "text-muted"}`}>Blueprint</button>
         <button type="button" onClick={() => setUi((prev) => ({...prev, tab: "list"}))}
           className={`px-4 py-2 rounded-lg text-sm font-medium ${ui.tab === "list" ? "bg-accent/10 text-accent" : "text-muted"}`}>Workflows ({ui.workflows.length})</button>
+        <button type="button" onClick={() => setUi((prev) => ({...prev, tab: "executor"}))}
+          className={`px-4 py-2 rounded-lg text-sm font-medium ${ui.tab === "executor" ? "bg-accent/10 text-accent" : "text-muted"}`}>Executor ({execInstances.length})</button>
       </div>
 
       {ui.tab === "blueprint" && (
@@ -137,6 +148,102 @@ export default function WorkflowsPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {ui.tab === "executor" && (
+        <div className="space-y-4 animate-in">
+          <div className="flex gap-2 items-center">
+            <input id="execName" placeholder="workflow name"
+              className="bg-surface border border-border rounded-lg px-3 py-2 text-sm flex-1"
+              onKeyDown={(e) => { if (e.key === "Enter") {
+                const inp = document.getElementById("execName") as HTMLInputElement;
+                api.executor.run(inp.value).then(() => { inp.value = ""; refreshExec(); });
+              }}} />
+            <button type="button" onClick={refreshExec}
+              className="px-3 py-2 bg-surface border border-border rounded-lg text-sm">Refresh</button>
+          </div>
+
+          {selectedInst && (
+            <div className="bg-card border border-border rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold">{selectedInst.instance_id}</h2>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setSelectedInst(null)} className="text-xs text-muted hover:text-foreground">Close</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="bg-surface rounded-lg p-3">
+                  <div className="text-[10px] text-muted">Status</div>
+                  <div className={`text-sm font-mono mt-1 ${selectedInst.status === "completed" ? "text-success" : selectedInst.status === "running" ? "text-accent" : selectedInst.status === "failed" ? "text-red-500" : "text-yellow-500"}`}>{selectedInst.status}</div>
+                </div>
+                <div className="bg-surface rounded-lg p-3">
+                  <div className="text-[10px] text-muted">Current Step</div>
+                  <div className="text-sm font-mono mt-1">{selectedInst.current_step ?? "-"}/{selectedInst.steps?.length ?? "-"}</div>
+                </div>
+                <div className="bg-surface rounded-lg p-3">
+                  <div className="text-[10px] text-muted">Workflow</div>
+                  <div className="text-sm font-mono mt-1 truncate">{selectedInst.workflow_name ?? "-"}</div>
+                </div>
+              </div>
+
+              {selectedInst.steps && (
+                <div className="space-y-2 mb-3">
+                  <div className="text-xs text-muted">Steps</div>
+                  {selectedInst.steps.map((s: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 bg-surface rounded-lg px-3 py-2">
+                      <div className={`w-2 h-2 rounded-full ${
+                        s.status === "completed" ? "bg-success" :
+                        s.status === "failed" ? "bg-red-500" :
+                        s.status === "running" ? "bg-accent animate-pulse" : "bg-yellow-500"
+                      }`} />
+                      <span className="text-xs font-mono flex-1">{s.name ?? s.step_name ?? `step-${i}`}</span>
+                      {s.attempts > 1 && <span className="text-[10px] text-muted">retry {s.attempts}</span>}
+                      {s.error && <span className="text-[10px] text-red-400 truncate max-w-[200px]" title={s.error}>{s.error}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                {selectedInst.status === "running" && (
+                  <button type="button" onClick={() => execAction(selectedInst.instance_id, "pause")}
+                    className="px-3 py-1.5 bg-yellow-500/10 text-yellow-500 rounded-lg text-xs font-medium">Pause</button>
+                )}
+                {selectedInst.status === "paused" && (
+                  <button type="button" onClick={() => execAction(selectedInst.instance_id, "resume")}
+                    className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Resume</button>
+                )}
+                {(selectedInst.status === "running" || selectedInst.status === "paused") && (
+                  <button type="button" onClick={() => execAction(selectedInst.instance_id, "cancel")}
+                    className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-xs font-medium">Cancel</button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {execInstances.length === 0 && !selectedInst && (
+            <p className="text-sm text-muted">No executor instances. Type a workflow name above and press Enter.</p>
+          )}
+
+          {execInstances.map((inst: any) => (
+            <div key={inst.instance_id} onClick={() => loadExecDetail(inst.instance_id)}
+              className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-accent/30 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-mono truncate flex-1">{inst.instance_id}</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-mono ${
+                  inst.status === "completed" ? "bg-success/10 text-success" :
+                  inst.status === "running" ? "bg-accent/10 text-accent" :
+                  inst.status === "failed" ? "bg-red-500/10 text-red-500" :
+                  inst.status === "cancelled" ? "bg-muted/10 text-muted" : "bg-yellow-500/10 text-yellow-500"
+                }`}>{inst.status}</span>
+              </div>
+              <div className="flex gap-3 text-[10px] text-muted font-mono">
+                <span>Workflow: {inst.workflow_name}</span>
+                <span>Step: {inst.current_step}/{inst.steps_completed ?? "?"}</span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

@@ -72,4 +72,14 @@ export const api = {
     blueprint: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/workflows/blueprint", { method: "POST", body: JSON.stringify(data) }),
     classify: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/workflows/classify", { method: "POST", body: JSON.stringify(data) }),
   },
+
+  executor: {
+    run: (name: string, context?: Record<string, unknown>) =>
+      fetchJSON<unknown>("/api/v1/workflows/executor/run", { method: "POST", body: JSON.stringify({ name, context: context || {} }) }),
+    instances: (status?: string) => fetchJSON<{instances: unknown[]}>(`/api/v1/workflows/executor/instances${status ? `?status=${status}` : ""}`),
+    get: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/executor/instances/${id}`),
+    pause: (id: string) => fetchJSON<{status: string}>(`/api/v1/workflows/executor/instances/${id}/pause`, { method: "POST" }),
+    resume: (id: string) => fetchJSON<{status: string}>(`/api/v1/workflows/executor/instances/${id}/resume`, { method: "POST" }),
+    cancel: (id: string) => fetchJSON<{status: string}>(`/api/v1/workflows/executor/instances/${id}/cancel`, { method: "POST" }),
+  },
 };
