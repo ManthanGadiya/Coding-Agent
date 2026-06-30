@@ -10,6 +10,7 @@ const nav = [
   { href: "/agents", label: "Agents", icon: "◇" },
   { href: "/tasks", label: "Tasks", icon: "☰" },
   { href: "/workflows", label: "Workflows", icon: "⚙" },
+  { href: "/decisions", label: "Decisions", icon: "⌘" },
   { href: "/tools", label: "Tools", icon: "⚡" },
   { href: "/releases", label: "Releases", icon: "▲" },
   { href: "/memory", label: "Memory", icon: "◎" },
