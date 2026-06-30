@@ -169,6 +169,30 @@ BLOCKED_SUBSTRINGS = {
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
+def _validate_command(cmd_str: str) -> Optional[str]:
+    import shlex
+    if not cmd_str or not cmd_str.strip():
+        return "No command provided"
+    parts = shlex.split(cmd_str)
+    base = parts[0] if parts else ""
+    if base not in ALLOWED_COMMANDS:
+        return f"Command '{base}' not in allowlist"
+    lower = cmd_str.lower()
+    for banned in BLOCKED_SUBSTRINGS:
+        if banned in lower:
+            return "Command blocked: contains forbidden pattern"
+    return None
+
+
+def _validate_path(target: str) -> Optional[str]:
+    resolved = Path(target).resolve()
+    try:
+        resolved.relative_to(PROJECT_ROOT)
+    except ValueError:
+        return f"Path '{target}' outside project root"
+    return None
+
+
 class CommandTool(BaseTool):
     def __init__(self):
         super().__init__(
@@ -185,25 +209,16 @@ class CommandTool(BaseTool):
         timeout = min(kwargs.get("timeout", 120), 300)
         sandbox = kwargs.get("sandbox", True)
 
-        if not cmd or not cmd.strip():
-            return ToolResult(success=False, error="No command provided")
+        err = _validate_command(cmd)
+        if err:
+            return ToolResult(success=False, error=err)
 
         parts = shlex.split(cmd)
-        base = parts[0] if parts else ""
-        if base not in ALLOWED_COMMANDS:
-            return ToolResult(success=False, error=f"Command '{base}' not in allowlist")
-
-        lower = cmd.lower()
-        for banned in BLOCKED_SUBSTRINGS:
-            if banned in lower:
-                return ToolResult(success=False, error=f"Command blocked: contains forbidden pattern")
 
         if sandbox and cwd:
-            resolved = Path(cwd).resolve()
-            try:
-                resolved.relative_to(PROJECT_ROOT)
-            except ValueError:
-                return ToolResult(success=False, error=f"Path '{cwd}' outside project root")
+            path_err = _validate_path(cwd)
+            if path_err:
+                return ToolResult(success=False, error=path_err)
 
         try:
             result = subprocess.run(
