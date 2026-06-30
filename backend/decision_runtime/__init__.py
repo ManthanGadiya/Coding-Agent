@@ -28,6 +28,9 @@ from backend.decision_runtime.conflict_resolver import ConflictResolver
 from backend.decision_runtime.environment_mode import EnvironmentMode, ModeController, mode_controller
 from backend.decision_runtime.decision_trace import DecisionTrace, TraceRecord, decision_trace
 from backend.decision_runtime.agent_communication import CommunicationEnforcer, CommunicationViolation, comm_enforcer
+from backend.decision_runtime.escalation import (
+    EscalationLevel, SeverityLevel, EscalationPackage, EscalationManager, escalation_manager,
+)
 from backend.decision_runtime.completion_validator import CompletionValidator
 from backend.decision_runtime.memory_hooks import MemoryHooks
 from backend.decision_runtime.logger import DecisionLogger
