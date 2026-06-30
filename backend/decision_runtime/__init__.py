@@ -31,6 +31,7 @@ from backend.decision_runtime.agent_communication import CommunicationEnforcer, 
 from backend.decision_runtime.escalation import (
     EscalationLevel, SeverityLevel, EscalationPackage, EscalationManager, escalation_manager,
 )
+from backend.decision_runtime.runtime_bootstrap import init_runtime, shutdown_runtime
 from backend.decision_runtime.completion_validator import CompletionValidator
 from backend.decision_runtime.memory_hooks import MemoryHooks
 from backend.decision_runtime.logger import DecisionLogger
