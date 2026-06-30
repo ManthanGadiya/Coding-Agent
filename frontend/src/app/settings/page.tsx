@@ -15,7 +15,7 @@ export default function SettingsPage() {
   useEffect(() => {
     api.autonomy.mode().then((d) => setMode(d.mode)).catch(() => {});
     api.llm.models().then((d: any) => { const m = Array.isArray(d) ? d : []; setModels(m); if (m.length) setSelectedModel(m[0]); }).catch(() => {});
-    api.mcp.servers().then(setMcpServers).catch(() => {});
+    api.mcp.servers().then((d: any) => setMcpServers(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   function setAutonomy(m: string) { api.autonomy.setMode(m).then(() => setMode(m)).catch(() => {}); }
@@ -24,12 +24,12 @@ export default function SettingsPage() {
   function addServer() {
     const config = serverType === "stdio" ? { command: serverCmd } : { url: serverCmd };
     api.mcp.add(serverName, { transport: serverType, ...config }).then(() => {
-      api.mcp.servers().then(setMcpServers); setServerName(""); setServerCmd("");
+      api.mcp.servers().then((d: any) => setMcpServers(Array.isArray(d) ? d : [])); setServerName(""); setServerCmd("");
     }).catch(() => {});
   }
-  function removeServer(name: string) { api.mcp.remove(name).then(() => api.mcp.servers().then(setMcpServers)).catch(() => {}); }
-  function connectServer(name: string) { api.mcp.connect(name).then(() => api.mcp.servers().then(setMcpServers)).catch(() => {}); }
-  function disconnectServer(name: string) { api.mcp.disconnect(name).then(() => api.mcp.servers().then(setMcpServers)).catch(() => {}); }
+  function removeServer(name: string) { api.mcp.remove(name).then(() => api.mcp.servers().then((d: any) => setMcpServers(Array.isArray(d) ? d : []))).catch(() => {}); }
+  function connectServer(name: string) { api.mcp.connect(name).then(() => api.mcp.servers().then((d: any) => setMcpServers(Array.isArray(d) ? d : []))).catch(() => {}); }
+  function disconnectServer(name: string) { api.mcp.disconnect(name).then(() => api.mcp.servers().then((d: any) => setMcpServers(Array.isArray(d) ? d : []))).catch(() => {}); }
 
   return (
     <div className="space-y-8">
