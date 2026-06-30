@@ -10,7 +10,7 @@ export default function UsersPage() {
   const [form, setForm] = useState({ name: "", role: "developer" });
   const [load, setLoad] = useState(true);
 
-  useEffect(() => { api.users.list().then(setUsers).catch(() => {}).finally(() => setLoad(false)); }, []);
+  useEffect(() => { api.users.list().then((d: any) => setUsers(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoad(false)); }, []);
 
   function create() {
     if (!form.name.trim()) return;

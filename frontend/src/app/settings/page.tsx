@@ -14,7 +14,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     api.autonomy.mode().then((d) => setMode(d.mode)).catch(() => {});
-    api.llm.models().then((d) => { setModels(d); if (d.length) setSelectedModel(d[0]); }).catch(() => {});
+    api.llm.models().then((d: any) => { const m = Array.isArray(d) ? d : []; setModels(m); if (m.length) setSelectedModel(m[0]); }).catch(() => {});
     api.mcp.servers().then(setMcpServers).catch(() => {});
   }, []);
 

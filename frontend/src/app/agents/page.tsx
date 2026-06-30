@@ -31,19 +31,19 @@ export default function AgentsPage() {
   }, []);
 
   function loadRegistry() {
-    api.agents.registry().then(setRegistry).catch(() => {});
-    api.agents.conflictHistory().then(setConflicts).catch(() => {});
-    api.agents.disagreementUnresolved().then((d) => setDisagreements(d as any[])).catch(() => {});
+    api.agents.registry().then((d: any) => setRegistry(Array.isArray(d) ? d : [])).catch(() => {});
+    api.agents.conflictHistory().then((d: any) => setConflicts(Array.isArray(d) ? d : [])).catch(() => {});
+    api.agents.disagreementUnresolved().then((d: any) => setDisagreements(Array.isArray(d) ? d : [])).catch(() => {});
   }
 
   function resolveConflict(data: Record<string, unknown>) {
-    api.agents.conflictResolve(data).then(() => api.agents.conflictHistory().then(setConflicts)).catch(() => {});
+    api.agents.conflictResolve(data).then(() => api.agents.conflictHistory().then((d: any) => setConflicts(Array.isArray(d) ? d : []))).catch(() => {});
   }
 
   function resolveDisagreement(id: string) {
     const resolution = resInput[id] || "auto-resolved";
     api.agents.disagreementResolve(id, resolution).then(() => {
-      api.agents.disagreementUnresolved().then((d) => setDisagreements(d as any[])).catch(() => {});
+      api.agents.disagreementUnresolved().then((d: any) => setDisagreements(Array.isArray(d) ? d : [])).catch(() => {});
       setResInput(r => { const n = {...r}; delete n[id]; return n; });
     }).catch(() => {});
   }
