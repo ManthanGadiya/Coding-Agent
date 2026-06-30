@@ -37,8 +37,8 @@ export default function MemoryPage() {
   useEffect(() => {
     if (tab === "retention") {
       api.memory.retentionHealth().then(setRetention).catch(() => {});
-      api.memory.stale().then(setStale).catch(() => {});
-      api.memory.archivalCandidates().then(setArchival).catch(() => {});
+      api.memory.stale().then((d: any) => setStale(Array.isArray(d) ? d : [])).catch(() => {});
+      api.memory.archivalCandidates().then((d: any) => setArchival(Array.isArray(d) ? d : [])).catch(() => {});
     }
   }, [tab]);
 

@@ -12,7 +12,10 @@ export default function ToolsPage() {
   const [skillName, setSkillName] = useState("");
   const [skillArgs, setSkillArgs] = useState("{}");
 
-  useEffect(() => { api.tools.list().then(setTools).catch(() => {}); api.skills.list().then(setSkills).catch(() => {}); }, []);
+  useEffect(() => {
+    api.tools.list().then((d: any) => setTools(Array.isArray(d) ? d : [])).catch(() => {});
+    api.skills.list().then((d: any) => setSkills(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
 
   function runTool() {
     setResult(null);
