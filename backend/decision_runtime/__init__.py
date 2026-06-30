@@ -26,6 +26,7 @@ from backend.decision_runtime.model_router import RuntimeModelRouter
 from backend.decision_runtime.approval_manager import ApprovalManager, ApprovalRequest
 from backend.decision_runtime.conflict_resolver import ConflictResolver
 from backend.decision_runtime.environment_mode import EnvironmentMode, ModeController, mode_controller
+from backend.decision_runtime.decision_trace import DecisionTrace, TraceRecord, decision_trace
 from backend.decision_runtime.completion_validator import CompletionValidator
 from backend.decision_runtime.memory_hooks import MemoryHooks
 from backend.decision_runtime.logger import DecisionLogger
