@@ -10,6 +10,7 @@ from backend.decision_runtime.skill_selector import skill_selector
 from backend.decision_runtime.mcp_selector import mcp_selector
 from backend.decision_runtime.model_router import runtime_model_router, ModelSelection
 from backend.decision_runtime.environment_mode import mode_controller, EnvironmentMode
+from backend.decision_runtime.decision_trace import decision_trace
 from backend.decision_runtime.approval_manager import approval_manager, ApprovalScope, ApprovalStatus
 from backend.decision_runtime.conflict_resolver import conflict_resolver
 from backend.decision_runtime.completion_validator import completion_validator
@@ -55,6 +56,14 @@ class RuntimeEngine:
 
         mode_controller.set_mode(request.mode)
 
+        trace = decision_trace.record(
+            task=request.task,
+            reason="Runtime decision pipeline initiated",
+            confidence="medium",
+            source=request.source,
+            correlation_id=request.correlation_id,
+        )
+
         decision_logger.info("engine.start", f"Decision request: {request.task[:100]}",
                              source="decision_engine",
                              correlation_id=request.correlation_id)
@@ -90,6 +99,13 @@ class RuntimeEngine:
                                   "All phases completed")
 
         result = self._build_final_result(ctx, request)
+
+        decision_trace.resolve(
+            trace.decision_id,
+            outcome=result["status"],
+            storage_location=f"engine_history:{len(self._history)}",
+        )
+
         self._history.append({
             "timestamp": ctx.start_time,
             "correlation_id": ctx.request.correlation_id,
