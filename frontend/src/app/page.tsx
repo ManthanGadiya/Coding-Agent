@@ -5,40 +5,34 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 
 export default function Dashboard() {
-  const [orch, setOrch] = useState<any>(null);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [mem, setMem] = useState<any>(null);
-  const [goal, setGoal] = useState("");
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [data, setData] = useState({ orch: null, projects: [] as any[], tasks: [] as any[], mem: null });
+  const [form, setForm] = useState({ goal: "", running: false, result: null as any });
 
   useEffect(() => {
-    api.manager.status().then(setOrch).catch(() => {});
-    api.projects.list().then((d: any) => setProjects(d.projects ?? d)).catch(() => {});
-    api.tasks.list().then((d: any) => setTasks(d.tasks ?? d)).catch(() => {});
-    api.memory.stats().then(setMem).catch(() => {});
+    api.manager.status().then((d) => setData(s => ({...s, orch: d}))).catch(() => {});
+    api.projects.list().then((d: any) => setData(s => ({...s, projects: d.projects ?? d}))).catch(() => {});
+    api.tasks.list().then((d: any) => setData(s => ({...s, tasks: d.tasks ?? d}))).catch(() => {});
+    api.memory.stats().then((d) => setData(s => ({...s, mem: d}))).catch(() => {});
   }, []);
 
   async function runGoal() {
-    if (!goal.trim()) return;
-    setRunning(true);
-    setResult(null);
+    if (!form.goal.trim()) return;
+    setForm(f => ({...f, running: true, result: null}));
     try {
-      const res = await api.agents.runGoal(goal.trim());
-      setResult(res);
+      const res = await api.agents.runGoal(form.goal.trim());
+      setForm(f => ({...f, result: res}));
     } catch (e: any) {
-      setResult({ success: false, error: e.message });
+      setForm(f => ({...f, result: { success: false, error: e.message } }));
     } finally {
-      setRunning(false);
+      setForm(f => ({...f, running: false}));
     }
   }
 
   const stats = [
-    { label: "Agents", value: orch?.registered_agents ?? "-", sub: `${orch?.agents ? Object.values(orch.agents).filter((a: any) => a.state === "idle").length : "-"} idle` },
-    { label: "Projects", value: projects.length, sub: `${projects.filter((p: any) => p.status === "active").length} active` },
-    { label: "Tasks", value: tasks.length, sub: `${tasks.filter((t: any) => t.status !== "completed").length} pending` },
-    { label: "Memory", value: mem?.total ?? mem?.entries ?? "-", sub: `${mem?.global ?? 0} global · ${mem?.project ?? 0} project` },
+    { label: "Agents", value: data.orch?.registered_agents ?? "-", sub: `${data.orch?.agents ? Object.values(data.orch.agents).filter((a: any) => a.state === "idle").length : "-"} idle` },
+    { label: "Projects", value: data.projects.length, sub: `${data.projects.filter((p: any) => p.status === "active").length} active` },
+    { label: "Tasks", value: data.tasks.length, sub: `${data.tasks.filter((t: any) => t.status !== "completed").length} pending` },
+    { label: "Memory", value: data.mem?.total ?? data.mem?.entries ?? "-", sub: `${data.mem?.global ?? 0} global · ${data.mem?.project ?? 0} project` },
   ];
 
   return (
@@ -51,41 +45,41 @@ export default function Dashboard() {
       <div className="bg-card border border-border rounded-xl p-5 animate-in">
         <h2 className="text-sm font-semibold mb-3">Run Goal</h2>
         <div className="flex gap-3">
-          <input
+          <input aria-label="Goal description"
             className="flex-1 bg-surface border border-border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-accent transition-colors"
             placeholder="Describe what you want CAMera to do..."
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
+            value={form.goal}
+            onChange={(e) => setForm(f => ({...f, goal: e.target.value}))}
             onKeyDown={(e) => e.key === "Enter" && runGoal()}
           />
-          <button
+          <button type="button"
             onClick={runGoal}
-            disabled={running || !goal.trim()}
+            disabled={form.running || !form.goal.trim()}
             className="px-5 py-2.5 bg-accent text-black font-medium rounded-lg text-sm hover:brightness-110 disabled:opacity-40 transition-all"
           >
-            {running ? "Running..." : "Run"}
+            {form.running ? "Running..." : "Run"}
           </button>
         </div>
 
-        {result && (
+        {form.result && (
           <div className="mt-4 space-y-2">
             <div className="flex items-center gap-3 text-sm">
               <span className="text-muted">Classification:</span>
-              <span className="font-mono text-accent">{result.classification}</span>
+              <span className="font-mono text-accent">{form.result.classification}</span>
               <span className="text-muted">Complexity:</span>
-              <span className="font-mono text-accent">{result.complexity}</span>
+              <span className="font-mono text-accent">{form.result.complexity}</span>
               <span className="text-muted">Pipeline:</span>
-              <span className="font-mono text-accent">{result.pipeline_id}</span>
+              <span className="font-mono text-accent">{form.result.pipeline_id}</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-mono ${
-                result.success ? "bg-success/10 text-success" : "bg-error/10 text-error"
-              }`}>{result.success ? "Success" : "Failed"}</span>
+                form.result.success ? "bg-success/10 text-success" : "bg-error/10 text-error"
+              }`}>{form.result.success ? "Success" : "Failed"}</span>
             </div>
             <div className="text-xs text-muted">
-              {result.completed_steps}/{result.total_steps} steps completed
+              {form.result.completed_steps}/{form.result.total_steps} steps completed
             </div>
             <div className="space-y-1 max-h-48 overflow-y-auto">
-              {(result.steps ?? []).map((s: any, i: number) => (
-                <div key={i} className="flex items-center gap-3 text-xs font-mono bg-surface rounded-lg px-3 py-2">
+              {(form.result.steps ?? []).map((s: any, i: number) => (
+                <div key={s.step} className="flex items-center gap-3 text-xs font-mono bg-surface rounded-lg px-3 py-2">
                   <span className={`w-2 h-2 rounded-full ${s.status === "completed" ? "bg-success" : "bg-error"}`} />
                   <span className="text-muted w-24 truncate">{s.step}</span>
                   <span className="text-muted w-20">{s.agent}</span>
@@ -107,11 +101,11 @@ export default function Dashboard() {
          ))}
        </div>
 
-      {orch?.agents && (
+      {data.orch?.agents && (
         <div className="animate-in">
           <h2 className="text-lg font-semibold mb-3">Agents</h2>
           <div className="grid grid-cols-3 gap-3">
-              {Object.entries(orch.agents).map(([id, a]: any) => (
+              {Object.entries(data.orch.agents).map(([id, a]: any) => (
                 <Link key={id} href={`/agents/${id}`} className="bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:bg-card-hover transition-colors">
                 <div>
                   <div className="text-sm font-medium">{id.replace("-1", "")}</div>

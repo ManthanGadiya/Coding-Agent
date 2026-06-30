@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 
 const categoryColor: Record<string, string> = {
@@ -15,44 +15,41 @@ const categoryColor: Record<string, string> = {
 };
 
 export default function Memory() {
-  const [entries, setEntries] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("");
-  const [searchQ, setSearchQ] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [category, setCategory] = useState("general");
+  const [data, setData] = useState({ entries: [] as any[], loading: true, filter: "", searchQ: "" });
+  const [create, setCreate] = useState({ show: false, title: "", content: "", category: "general" });
 
-  useEffect(() => { loadEntries(); }, [filter]);
-
-  async function loadEntries() {
-    setLoading(true);
+  const loadEntries = useCallback(async (filterValue?: string) => {
+    setData(d => ({...d, loading: true}));
     try {
-      const params = filter ? `category=${filter}` : "";
+      const f = filterValue ?? data.filter;
+      const params = f ? `category=${f}` : "";
       const d: any = await api.memory.entries(params);
-      setEntries(Array.isArray(d) ? d : d.entries ?? []);
-    } catch { setEntries([]); }
-    finally { setLoading(false); }
-  }
+      setData(x => ({...x, entries: Array.isArray(d) ? d : d.entries ?? []}));
+    } catch { setData(d => ({...d, entries: []})); }
+    finally { setData(d => ({...d, loading: false})); }
+  }, [data.filter]);
+
+  const loadRef = useRef(loadEntries);
+  loadRef.current = loadEntries;
+  useEffect(() => { loadRef.current(); }, []);
 
   async function search() {
-    if (!searchQ.trim()) { loadEntries(); return; }
-    setLoading(true);
+    if (!data.searchQ.trim()) { loadEntries(); return; }
+    setData(d => ({...d, loading: true}));
     try {
-      const d: any = await api.memory.search(searchQ.trim());
-      setEntries(Array.isArray(d) ? d : d.entries ?? d);
-    } catch { setEntries([]); }
-    finally { setLoading(false); }
+      const d: any = await api.memory.search(data.searchQ.trim());
+      setData(x => ({...x, entries: Array.isArray(d) ? d : d.entries ?? d}));
+    } catch { setData(d => ({...d, entries: []})); }
+    finally { setData(d => ({...d, loading: false})); }
   }
 
   async function createEntry() {
-    if (!title.trim() || !content.trim()) return;
+    if (!create.title.trim() || !create.content.trim()) return;
     await fetch("/api/v1/memory/entries", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scope: "global", category, title: title.trim(), content: content.trim() }),
+      body: JSON.stringify({ scope: "global", category: create.category, title: create.title.trim(), content: create.content.trim() }),
     });
-    setTitle(""); setContent(""); setShowCreate(false);
+    setCreate(c => ({...c, title: "", content: "", show: false}));
     loadEntries();
   }
 
@@ -60,26 +57,26 @@ export default function Memory() {
     <div className="space-y-6 animate-in">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Memory</h1>
-        <button onClick={() => setShowCreate(!showCreate)}
+        <button type="button" onClick={() => setCreate(c => ({...c, show: !c.show}))}
           className="px-4 py-2 bg-accent text-black font-medium rounded-lg text-sm hover:brightness-110 transition-all">
-          {showCreate ? "Cancel" : "+ New Entry"}
+          {create.show ? "Cancel" : "+ New Entry"}
         </button>
       </div>
 
-      {showCreate && (
+      {create.show && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-          <input className="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-accent"
-            placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <textarea className="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-accent min-h-[80px] resize-y"
-            placeholder="Content" value={content} onChange={(e) => setContent(e.target.value)} />
+          <input aria-label="Entry title" className="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-accent"
+            placeholder="Title" value={create.title} onChange={(e) => setCreate(c => ({...c, title: e.target.value}))} />
+          <textarea aria-label="Entry content" className="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-accent min-h-[80px] resize-y"
+            placeholder="Content" value={create.content} onChange={(e) => setCreate(c => ({...c, content: e.target.value}))} />
           <div className="flex gap-2 items-center">
-            <select className="bg-surface border border-border rounded-lg px-3 py-2 text-sm outline-none"
-              value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select aria-label="Category" className="bg-surface border border-border rounded-lg px-3 py-2 text-sm outline-none"
+              value={create.category} onChange={(e) => setCreate(c => ({...c, category: e.target.value}))}>
               {["general", "architecture", "decision", "lesson", "bug", "preference", "pattern", "insight"].map(c =>
                 <option key={c} value={c}>{c}</option>
               )}
             </select>
-            <button onClick={createEntry} disabled={!title.trim() || !content.trim()}
+            <button type="button" onClick={createEntry} disabled={!create.title.trim() || !create.content.trim()}
               className="px-4 py-2 bg-accent text-black font-medium rounded-lg text-sm disabled:opacity-40">
               Create
             </button>
@@ -90,30 +87,30 @@ export default function Memory() {
       <div className="flex gap-3">
         <div className="flex gap-2 flex-wrap flex-1">
           {["", "general", "architecture", "decision", "lesson", "bug", "preference"].map((c) => (
-            <button key={c} type="button" onClick={() => { setFilter(c); setSearchQ(""); }}
+            <button key={c} type="button" onClick={() => { setData(d => ({...d, filter: c, searchQ: ""})); loadEntries(c); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-                filter === c ? "bg-accent text-black" : "bg-card border border-border text-muted hover:text-foreground"
+                data.filter === c ? "bg-accent text-black" : "bg-card border border-border text-muted hover:text-foreground"
               }`}>{c || "all"}</button>
           ))}
         </div>
         <div className="flex gap-2">
-          <input className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs outline-none focus:border-accent w-48"
-            placeholder="Search..." value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
+          <input aria-label="Search memory" className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs outline-none focus:border-accent w-48"
+            placeholder="Search..." value={data.searchQ} onChange={(e) => setData(d => ({...d, searchQ: e.target.value}))}
             onKeyDown={(e) => e.key === "Enter" && search()} />
-          <button onClick={search}
+          <button type="button" onClick={search}
             className="px-3 py-1.5 bg-card border border-border rounded-lg text-xs font-mono hover:text-foreground transition-colors">
             Search
           </button>
         </div>
       </div>
 
-      {loading ? (
+      {data.loading ? (
         <div className="text-center text-muted text-sm py-12">Loading...</div>
-      ) : entries.length === 0 ? (
+      ) : data.entries.length === 0 ? (
         <div className="text-center text-muted text-sm py-12">No memory entries found</div>
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
-          {entries.map((e: any) => (
+          {data.entries.map((e: any) => (
             <div key={e.id} className="px-5 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

@@ -7,28 +7,23 @@ const CATEGORIES = ["sdlc", "feature", "bug_fix", "refactor", "release", "task_p
 const COMPLEXITIES = ["simple", "moderate", "complex", "critical"];
 
 export default function WorkflowsPage() {
-  const [tab, setTab] = useState<"blueprint" | "list">("blueprint");
-  const [cat, setCat] = useState("feature");
-  const [complexity, setComplexity] = useState("moderate");
-  const [blueprint, setBlueprint] = useState<any>(null);
-  const [workflows, setWorkflows] = useState<any[]>([]);
-  const [classifyInput, setClassifyInput] = useState({ scope: "medium", risk: "medium", deps: 0, arch: false, sec: false, research: false });
-  const [classification, setClassification] = useState<any>(null);
+  const [ui, setUi] = useState<{tab: "blueprint" | "list"; cat: string; complexity: string; blueprint: any; workflows: any[]}>({tab: "blueprint" as "blueprint" | "list", cat: "feature", complexity: "moderate", blueprint: null, workflows: []});
+  const [classify, setClassify] = useState<{input: {scope: string; risk: string; deps: number; arch: boolean; sec: boolean; research: boolean}; result: any}>({input: {scope: "medium", risk: "medium", deps: 0, arch: false, sec: false, research: false}, result: null});
 
-  useEffect(() => { api.workflows.list().then(setWorkflows).catch(() => {}); }, []);
+  useEffect(() => { api.workflows.list().then((d) => setUi((prev) => ({...prev, workflows: d}))).catch(() => {}); }, []);
 
   async function loadBlueprint() {
-    const bp = await api.workflows.blueprint({ category: cat, complexity });
-    setBlueprint(bp);
+    const bp = await api.workflows.blueprint({ category: ui.cat, complexity: ui.complexity });
+    setUi((prev) => ({...prev, blueprint: bp}));
   }
 
   async function runClassify() {
     const r = await api.workflows.classify({
-      scope: classifyInput.scope, risk: classifyInput.risk,
-      dependencies: classifyInput.deps, architecture_impact: classifyInput.arch,
-      security_impact: classifyInput.sec, research_needed: classifyInput.research,
+      scope: classify.input.scope, risk: classify.input.risk,
+      dependencies: classify.input.deps, architecture_impact: classify.input.arch,
+      security_impact: classify.input.sec, research_needed: classify.input.research,
     });
-    setClassification(r);
+    setClassify((prev) => ({...prev, result: r}));
   }
 
   return (
@@ -39,46 +34,46 @@ export default function WorkflowsPage() {
       </div>
 
       <div className="flex gap-2 border-b border-border pb-2 animate-in">
-        <button type="button" onClick={() => setTab("blueprint")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "blueprint" ? "bg-accent/10 text-accent" : "text-muted"}`}>Blueprint</button>
-        <button type="button" onClick={() => setTab("list")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "list" ? "bg-accent/10 text-accent" : "text-muted"}`}>Workflows ({workflows.length})</button>
+        <button type="button" onClick={() => setUi((prev) => ({...prev, tab: "blueprint"}))}
+          className={`px-4 py-2 rounded-lg text-sm font-medium ${ui.tab === "blueprint" ? "bg-accent/10 text-accent" : "text-muted"}`}>Blueprint</button>
+        <button type="button" onClick={() => setUi((prev) => ({...prev, tab: "list"}))}
+          className={`px-4 py-2 rounded-lg text-sm font-medium ${ui.tab === "list" ? "bg-accent/10 text-accent" : "text-muted"}`}>Workflows ({ui.workflows.length})</button>
       </div>
 
-      {tab === "blueprint" && (
+      {ui.tab === "blueprint" && (
         <div className="space-y-4 animate-in">
           <div className="bg-card border border-border rounded-xl p-5 space-y-4">
             <div className="flex gap-3">
-              <select value={cat} onChange={(e) => setCat(e.target.value)} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
+              <select value={ui.cat} onChange={(e) => setUi((prev) => ({...prev, cat: e.target.value}))} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c.replace("_", " ")}</option>)}
               </select>
-              <select value={complexity} onChange={(e) => setComplexity(e.target.value)} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
+              <select value={ui.complexity} onChange={(e) => setUi((prev) => ({...prev, complexity: e.target.value}))} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
                 {COMPLEXITIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <button type="button" onClick={loadBlueprint} className="px-5 py-2 bg-accent text-black rounded-lg text-sm font-medium">Generate</button>
             </div>
 
-            {["bug_fix", "refactor", "release"].includes(cat) && (
+            {["bug_fix", "refactor", "release"].includes(ui.cat) && (
               <div className="text-xs text-muted">
-                {cat === "bug_fix" && "Tip: use severity=critical|high|medium|low via API for tailored bug fix workflows"}
-                {cat === "refactor" && "Tip: use impact=high|moderate|low via API for tailored refactor workflows"}
-                {cat === "release" && "Tip: use release_type=major|minor|patch via API for tailored release workflows"}
+                {ui.cat === "bug_fix" && "Tip: use severity=critical|high|medium|low via API for tailored bug fix workflows"}
+                {ui.cat === "refactor" && "Tip: use impact=high|moderate|low via API for tailored refactor workflows"}
+                {ui.cat === "release" && "Tip: use release_type=major|minor|patch via API for tailored release workflows"}
               </div>
             )}
           </div>
 
-          {blueprint && (
+          {ui.blueprint && (
             <div className="bg-card border border-border rounded-xl p-5">
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-sm font-semibold">{blueprint.category}</span>
-                <span className="px-2 py-0.5 rounded text-xs font-mono bg-surface">{blueprint.complexity}</span>
-                {blueprint.requires_approval && <span className="px-2 py-0.5 rounded text-xs font-mono bg-orange-500/10 text-orange-500">requires approval</span>}
+                <span className="text-sm font-semibold">{ui.blueprint.category}</span>
+                <span className="px-2 py-0.5 rounded text-xs font-mono bg-surface">{ui.blueprint.complexity}</span>
+                {ui.blueprint.requires_approval && <span className="px-2 py-0.5 rounded text-xs font-mono bg-orange-500/10 text-orange-500">requires approval</span>}
               </div>
 
               <div className="relative">
-                {blueprint.steps.map((s: any, i: number) => (
+                {ui.blueprint.steps.map((s: any, i: number) => (
                   <div key={s.name} className="flex gap-4 pb-4 relative">
-                    {i < blueprint.steps.length - 1 && <div className="absolute left-[11px] top-6 bottom-0 w-px bg-border" />}
+                    {i < ui.blueprint.steps.length - 1 && <div className="absolute left-[11px] top-6 bottom-0 w-px bg-border" />}
                     <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center shrink-0 mt-0.5">
                       <div className="w-2 h-2 rounded-full bg-accent" />
                     </div>
@@ -93,11 +88,11 @@ export default function WorkflowsPage() {
                 ))}
               </div>
 
-              {blueprint.quality_gates?.length > 0 && (
+              {ui.blueprint.quality_gates?.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="text-xs text-muted mb-2">Quality gates</div>
                   <div className="flex flex-wrap gap-2">
-                    {blueprint.quality_gates.map((g: string) => (
+                    {ui.blueprint.quality_gates.map((g: string) => (
                       <span key={g} className="px-2 py-1 bg-surface rounded text-xs text-muted">{g}</span>
                     ))}
                   </div>
@@ -109,13 +104,13 @@ export default function WorkflowsPage() {
           <div className="bg-card border border-border rounded-xl p-5">
             <h2 className="text-sm font-semibold mb-3">Task Classifier</h2>
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <select value={classifyInput.scope} onChange={(e) => setClassifyInput({ ...classifyInput, scope: e.target.value })}
+              <select value={classify.input.scope} onChange={(e) => setClassify((prev) => ({...prev, input: {...prev.input, scope: e.target.value}}))}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
                 <option value="small">Scope: Small</option>
                 <option value="medium">Scope: Medium</option>
                 <option value="large">Scope: Large</option>
               </select>
-              <select value={classifyInput.risk} onChange={(e) => setClassifyInput({ ...classifyInput, risk: e.target.value })}
+              <select value={classify.input.risk} onChange={(e) => setClassify((prev) => ({...prev, input: {...prev.input, risk: e.target.value}}))}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
                 <option value="low">Risk: Low</option>
                 <option value="medium">Risk: Medium</option>
@@ -123,32 +118,32 @@ export default function WorkflowsPage() {
               </select>
             </div>
             <div className="flex flex-wrap gap-3 mb-3">
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={classifyInput.arch}
-                onChange={(e) => setClassifyInput({ ...classifyInput, arch: e.target.checked })} className="rounded" />Architecture impact</label>
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={classifyInput.sec}
-                onChange={(e) => setClassifyInput({ ...classifyInput, sec: e.target.checked })} className="rounded" />Security impact</label>
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={classifyInput.research}
-                onChange={(e) => setClassifyInput({ ...classifyInput, research: e.target.checked })} className="rounded" />Research needed</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={classify.input.arch}
+                onChange={(e) => setClassify((prev) => ({...prev, input: {...prev.input, arch: e.target.checked}}))} className="rounded" />Architecture impact</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={classify.input.sec}
+                onChange={(e) => setClassify((prev) => ({...prev, input: {...prev.input, sec: e.target.checked}}))} className="rounded" />Security impact</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={classify.input.research}
+                onChange={(e) => setClassify((prev) => ({...prev, input: {...prev.input, research: e.target.checked}}))} className="rounded" />Research needed</label>
             </div>
             <div className="flex gap-2">
-              <input type="number" value={classifyInput.deps} onChange={(e) => setClassifyInput({ ...classifyInput, deps: +e.target.value })}
+              <input type="number" value={classify.input.deps} onChange={(e) => setClassify((prev) => ({...prev, input: {...prev.input, deps: +e.target.value}}))}
                 placeholder="Dependencies" aria-label="Number of dependencies"
                 className="w-32 bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
               <button type="button" onClick={runClassify} className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">Classify</button>
             </div>
-            {classification && (
+            {classify.result && (
               <div className="mt-3 text-sm">
-                Complexity: <span className="font-mono font-bold text-accent">{classification.complexity}</span>
+                Complexity: <span className="font-mono font-bold text-accent">{classify.result.complexity}</span>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {tab === "list" && (
+      {ui.tab === "list" && (
         <div className="space-y-3 animate-in">
-          {workflows.length === 0 && <p className="text-sm text-muted">No workflows created yet.</p>}
-          {workflows.map((wf: any) => (
+          {ui.workflows.length === 0 && <p className="text-sm text-muted">No workflows created yet.</p>}
+          {ui.workflows.map((wf: any) => (
             <div key={wf.id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <div>

@@ -32,12 +32,12 @@ export default function Projects() {
 
       {showCreate && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-          <input className="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-accent"
+          <input aria-label="Project name" className="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-accent"
             placeholder="Project name" value={name} onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && createProject()} />
-          <input className="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-accent"
+          <input aria-label="Project description" className="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-accent"
             placeholder="Description (optional)" value={desc} onChange={(e) => setDesc(e.target.value)} />
-          <button onClick={createProject} disabled={!name.trim()}
+          <button type="button" onClick={createProject} disabled={!name.trim()}
             className="px-4 py-2 bg-accent text-black font-medium rounded-lg text-sm disabled:opacity-40">Create</button>
         </div>
       )}

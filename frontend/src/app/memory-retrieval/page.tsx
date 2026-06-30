@@ -7,10 +7,7 @@ const AGENTS = ["manager", "architect", "planner", "coder", "tester", "debugger"
 const MODES = ["planning", "architecture", "implementation", "testing", "debugging", "review", "learning", "research", "optimization"];
 
 export default function MemoryRetrievalPage() {
-  const [query, setQuery] = useState("");
-  const [agent, setAgent] = useState("");
-  const [mode, setMode] = useState("");
-  const [complexity, setComplexity] = useState("moderate");
+  const [params, setParams] = useState({ query: "", agent: "", mode: "", complexity: "moderate" });
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [profiles, setProfiles] = useState<any>({});
@@ -20,7 +17,7 @@ export default function MemoryRetrievalPage() {
   async function search() {
     setLoading(true);
     try {
-      const r = await api.memoryRetrieval.retrieve({ query, agent, mode, task_complexity: complexity });
+      const r = await api.memoryRetrieval.retrieve({ query: params.query, agent: params.agent, mode: params.mode, task_complexity: params.complexity });
       setResult(r);
     } catch { setResult(null); }
     setLoading(false);
@@ -35,26 +32,26 @@ export default function MemoryRetrievalPage() {
 
       <div className="bg-card border border-border rounded-xl p-5 space-y-4 animate-in">
         <div className="flex gap-3">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()}
+          <input value={params.query} onChange={(e) => setParams(p => ({...p, query: e.target.value}))} onKeyDown={(e) => e.key === "Enter" && search()}
             placeholder="Search memories..."
             aria-label="Search query"
             className="flex-1 bg-surface border border-border rounded-lg px-4 py-2.5 text-sm" />
-          <button type="button" onClick={search} disabled={loading || !query}
+          <button type="button" onClick={search} disabled={loading || !params.query}
             className="px-5 py-2.5 bg-accent text-black rounded-lg text-sm font-medium disabled:opacity-50">
             {loading ? "Searching..." : "Retrieve"}
           </button>
         </div>
 
         <div className="flex gap-3 flex-wrap">
-          <select value={agent} onChange={(e) => setAgent(e.target.value)} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
+          <select aria-label="Agent filter" value={params.agent} onChange={(e) => setParams(p => ({...p, agent: e.target.value}))} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
             <option value="">Any agent</option>
             {AGENTS.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
-          <select value={mode} onChange={(e) => setMode(e.target.value)} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
+          <select aria-label="Mode filter" value={params.mode} onChange={(e) => setParams(p => ({...p, mode: e.target.value}))} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
             <option value="">Any mode</option>
             {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
-          <select value={complexity} onChange={(e) => setComplexity(e.target.value)} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
+          <select aria-label="Complexity filter" value={params.complexity} onChange={(e) => setParams(p => ({...p, complexity: e.target.value}))} className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
             <option value="simple">Simple</option>
             <option value="moderate">Moderate</option>
             <option value="complex">Complex</option>
