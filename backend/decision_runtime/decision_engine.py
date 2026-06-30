@@ -9,6 +9,7 @@ from backend.decision_runtime.agent_selector import agent_selector, SelectionRes
 from backend.decision_runtime.skill_selector import skill_selector
 from backend.decision_runtime.mcp_selector import mcp_selector
 from backend.decision_runtime.model_router import runtime_model_router, ModelSelection
+from backend.decision_runtime.environment_mode import mode_controller, EnvironmentMode
 from backend.decision_runtime.approval_manager import approval_manager, ApprovalScope, ApprovalStatus
 from backend.decision_runtime.conflict_resolver import conflict_resolver
 from backend.decision_runtime.completion_validator import completion_validator
@@ -22,6 +23,7 @@ class DecisionRequest:
     context: Dict[str, Any] = field(default_factory=dict)
     source: str = "user"
     correlation_id: Optional[str] = None
+    mode: EnvironmentMode = EnvironmentMode.BUILD
     skip_approvals: bool = False
     prefer_local: bool = True
 
@@ -50,6 +52,8 @@ class RuntimeEngine:
             request=request,
             start_time=datetime.utcnow().isoformat(),
         )
+
+        mode_controller.set_mode(request.mode)
 
         decision_logger.info("engine.start", f"Decision request: {request.task[:100]}",
                              source="decision_engine",
@@ -85,7 +89,7 @@ class RuntimeEngine:
         state_machine.transition(ctx.state.instance_id, RuntimeState.COMPLETED,
                                   "All phases completed")
 
-        result = self._build_final_result(ctx)
+        result = self._build_final_result(ctx, request)
         self._history.append({
             "timestamp": ctx.start_time,
             "correlation_id": ctx.request.correlation_id,
@@ -258,7 +262,7 @@ class RuntimeEngine:
             "correlation_id": ctx.request.correlation_id,
         })
 
-    def _build_final_result(self, ctx: DecisionContext) -> Dict[str, Any]:
+    def _build_final_result(self, ctx: DecisionContext, request: DecisionRequest) -> Dict[str, Any]:
         result = {
             "status": "completed" if not ctx.errors else "completed_with_warnings",
             "decision_id": f"dec-{id(ctx)}",
@@ -266,6 +270,8 @@ class RuntimeEngine:
             "task": ctx.request.task,
             "plan": ctx.result or {},
             "errors": ctx.errors,
+            "mode": request.mode.value,
+            "priorities": mode_controller.priorities(),
             "summary": {
                 "task_type": ctx.classification.task_type.value if ctx.classification else "unknown",
                 "complexity": ctx.classification.complexity if ctx.classification else "unknown",
