@@ -1,4 +1,4 @@
-# CAMera
+## CAMera
 
 ## Autonomous Multi-Agent Software Engineering System
 
