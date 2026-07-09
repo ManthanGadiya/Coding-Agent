@@ -273,6 +273,14 @@ class RuntimeEngine:
     def _step_execute(self, ctx: DecisionContext):
         plan = self._build_plan(ctx)
         ctx.result = plan
+        agent_results = {role: r for role, r in self._dispatched.items()
+                         if r.get("status") == "completed"}
+        if len(agent_results) >= 2 and ctx.classification.complexity in ("complex", "critical"):
+            args = {a: str(r.get("output", ""))[:200] for a, r in agent_results.items()}
+            conflict_resolver.resolve(
+                agents=list(agent_results.keys()), issue=ctx.request.task,
+                arguments=args, severity="high" if ctx.classification.complexity == "critical" else "medium",
+            )
         decision_logger.info("engine.executed",
                              f"Plan built: {plan.get('plan_type', 'unknown')}",
                              source="decision_engine",
