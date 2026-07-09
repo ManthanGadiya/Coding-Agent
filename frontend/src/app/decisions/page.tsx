@@ -70,7 +70,7 @@ export default function DecisionsPage() {
               </div>
               {h.options && (
                 <div className="space-y-1 mb-3">{h.options.map((o: any, j: number) => (
-                  <div key={j} className="flex items-center gap-2 text-xs bg-surface rounded-lg px-3 py-2">
+                  <div key={o.label ?? o.name ?? j} className="flex items-center gap-2 text-xs bg-surface rounded-lg px-3 py-2">
                     <span className="text-accent font-mono">{j + 1}.</span>
                     <span className="flex-1">{o.label || o.name}</span>
                     {o.risk && <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${o.risk === "low" ? "bg-success/10 text-success" : o.risk === "high" ? "bg-red-500/10 text-red-500" : "bg-yellow-500/10 text-yellow-500"}`}>{o.risk}</span>}
@@ -89,14 +89,14 @@ export default function DecisionsPage() {
         <div className="space-y-4 animate-in">
           <div className="bg-card border border-border rounded-xl p-5 space-y-4">
             <h2 className="text-sm font-semibold">Make a Decision</h2>
-            <input value={decision.objective} onChange={(e) => setDecision(d => ({...d, objective: e.target.value}))}
+            <input aria-label="Decision objective" value={decision.objective} onChange={(e) => setDecision(d => ({...d, objective: e.target.value}))}
               placeholder="What decision needs to be made?" className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
 
             <div className="space-y-2">
               <div className="text-xs text-muted">Options ({decision.options.length})</div>
               {decision.options.length > 0 && (
                 <div className="space-y-1 mb-2">{decision.options.map((o, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs bg-surface rounded-lg px-3 py-2">
+                  <div key={o.label ?? i} className="flex items-center gap-2 text-xs bg-surface rounded-lg px-3 py-2">
                     <span className="text-accent font-mono">{i + 1}.</span>
                     <span className="flex-1">{o.label}{o.desc ? ` — ${o.desc}` : ""}</span>
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${o.risk === "low" ? "bg-success/10 text-success" : o.risk === "high" ? "bg-red-500/10 text-red-500" : "bg-yellow-500/10 text-yellow-500"}`}>{o.risk}</span>
@@ -105,12 +105,12 @@ export default function DecisionsPage() {
                 ))}</div>
               )}
               <div className="flex gap-2">
-                <input value={decision.optLabel} onChange={(e) => setDecision(d => ({...d, optLabel: e.target.value}))}
+                <input aria-label="Option label" value={decision.optLabel} onChange={(e) => setDecision(d => ({...d, optLabel: e.target.value}))}
                   placeholder="Option label" className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm"
                   onKeyDown={(e) => e.key === "Enter" && addOption()} />
-                <input value={decision.optDesc} onChange={(e) => setDecision(d => ({...d, optDesc: e.target.value}))}
+                <input aria-label="Option description" value={decision.optDesc} onChange={(e) => setDecision(d => ({...d, optDesc: e.target.value}))}
                   placeholder="Description (optional)" className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
-                <select value={decision.optRisk} onChange={(e) => setDecision(d => ({...d, optRisk: e.target.value}))}
+                <select aria-label="Option risk level" value={decision.optRisk} onChange={(e) => setDecision(d => ({...d, optRisk: e.target.value}))}
                   className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
                   <option value="low">Low Risk</option><option value="medium">Medium Risk</option><option value="high">High Risk</option>
                 </select>
@@ -137,7 +137,7 @@ export default function DecisionsPage() {
             <h2 className="text-sm font-semibold">Risk Assessment</h2>
             <p className="text-xs text-muted">Assess the risk of an action or decision before committing to it.</p>
             <div className="flex gap-2">
-              <input value={risk.action} onChange={(e) => setRisk(p => ({...p, action: e.target.value}))}
+              <input aria-label="Action to assess" value={risk.action} onChange={(e) => setRisk(p => ({...p, action: e.target.value}))}
                 placeholder="Describe the action to assess..." className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm"
                 onKeyDown={(e) => e.key === "Enter" && assessRisk()} />
               <button type="button" onClick={assessRisk} disabled={!risk.action.trim()}

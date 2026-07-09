@@ -88,9 +88,9 @@ export default function UserDetailPage() {
 
         {goalForm.show && (
           <div className="flex gap-2 mb-4">
-            <input value={goalForm.goal} onChange={(e) => setGoalForm(f => ({...f, goal: e.target.value}))}
+            <input aria-label="Goal description" value={goalForm.goal} onChange={(e) => setGoalForm(f => ({...f, goal: e.target.value}))}
               placeholder="Goal description" className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
-            <select value={goalForm.priority} onChange={(e) => setGoalForm(f => ({...f, priority: e.target.value}))}
+            <select aria-label="Goal priority" value={goalForm.priority} onChange={(e) => setGoalForm(f => ({...f, priority: e.target.value}))}
               className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
               {["low", "medium", "high", "critical"].map(p => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -105,7 +105,7 @@ export default function UserDetailPage() {
           <div className="space-y-2">
             {goals.map((g: any) => (
               <div key={g.goal_id || g.id} className="flex items-center gap-3 bg-surface rounded-lg px-4 py-3">
-                <input type="checkbox" checked={g.completed} onChange={() => toggleGoal(id, g.goal_id || g.id, !g.completed)}
+                <input aria-label="Mark goal complete" type="checkbox" checked={g.completed} onChange={() => toggleGoal(id, g.goal_id || g.id, !g.completed)}
                   className="rounded accent-accent" />
                 <span className={`text-sm flex-1 ${g.completed ? "line-through text-muted" : ""}`}>{g.goal || g.description}</span>
                 <span className={`px-2 py-0.5 rounded text-xs font-mono ${

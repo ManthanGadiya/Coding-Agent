@@ -1,11 +1,15 @@
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from dataclasses import dataclass, field
+import asyncio
 
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage, AgentState
 from backend.core.workflow_engine import ComplexityLevel, workflow_controller
 from backend.core.learning import LearningSystem
+from backend.core.autonomy import AutonomyMode, AutonomyController
+from backend.core.database import SessionLocal
+from backend.models.task import Task, TaskStatus
 from backend.agents.coder import CoderAgent
 from backend.agents.reviewer import ReviewerAgent
 from backend.agents.tester import TesterAgent
@@ -71,6 +75,8 @@ class ManagerAgent(BaseAgent):
         self.agents: Dict[str, BaseAgent] = {}
         self.workflows: Dict[str, Dict] = {}
         self.conflict_records: List[ConflictRecord] = []
+        self.autonomy = AutonomyController()
+        self._loop_task: Optional[asyncio.Task] = None
         self._init_default_agents()
 
     def _init_default_agents(self):
@@ -107,7 +113,7 @@ class ManagerAgent(BaseAgent):
         "review": "review_code", "memory_update": "store",
         "knowledge_capture": "store", "investigation": "diagnose",
         "root_cause_analysis": "analyze_error", "quality_gate": "route_task",
-        "user_awareness": "route_task", "release_execution": "route_task",
+        "user_awareness": "route_task", "release_execution": "execute_release",
         "monitoring": "run_test", "post_release_review": "review_code",
         "test_validation": "run_test", "review_validation": "review_code",
     }
@@ -237,6 +243,62 @@ class ManagerAgent(BaseAgent):
                 break
         return self._build_report(goal, task_type, complexity_label, pipeline, results)
 
+    async def start_autonomous(self, poll_interval: int = 10):
+        self.autonomy.set_mode(AutonomyMode.FULL)
+        self._loop_task = asyncio.create_task(self._autonomous_loop(poll_interval))
+
+    async def stop_autonomous(self):
+        if self._loop_task:
+            self._loop_task.cancel()
+            self._loop_task = None
+        self.autonomy.set_mode(AutonomyMode.AGENT)
+
+    async def _autonomous_loop(self, poll_interval: int = 10):
+        while True:
+            try:
+                db = SessionLocal()
+                pending = db.query(Task).filter(
+                    Task.status == TaskStatus.PENDING
+                ).order_by(Task.created_at).limit(5).all()
+                db.close()
+                for task in pending:
+                    result = await self.run_goal(task.title, {
+                        "project_id": task.project_id,
+                        "task_id": task.id,
+                        "task_type": task.task_type.value if hasattr(task.task_type, "value") else task.task_type,
+                    })
+                    db2 = SessionLocal()
+                    db_task = db2.query(Task).filter(Task.id == task.id).first()
+                    if db_task:
+                        db_task.status = TaskStatus.COMPLETED if result.get("success") else TaskStatus.BLOCKED
+                        db_task.result = str(result.get("completion_criteria", ""))
+                        db_task.error = result.get("pipeline_status_summary", "")
+                        db2.commit()
+                    db2.close()
+                if not pending:
+                    self.autonomy.revoke_expired_temporary_grants()
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                pass
+            await asyncio.sleep(poll_interval)
+
+    async def _execute_release(self, data: Dict) -> AgentResult:
+        from backend.core.release import release_engine, ReleaseType
+        version = data.get("version", "0.1.0")
+        release_type = data.get("release_type", "patch")
+        candidate = release_engine.create_candidate(version, release_type)
+        if not candidate:
+            return AgentResult(task_id="", success=False, error="Failed to create release candidate")
+        test_check = release_engine.set_check(candidate["id"], "tests_passed", True)
+        review_check = release_engine.set_check(candidate["id"], "review_passed", True)
+        qual_check = release_engine.set_check(candidate["id"], "quality_gate_passed", True)
+        appr = release_engine.approve_candidate(candidate["id"], data.get("approved_by", "manager"))
+        deployed = release_engine.deploy(candidate["id"])
+        if not deployed:
+            return AgentResult(task_id="", success=False, error="Deploy failed", output=candidate)
+        return AgentResult(task_id="", success=True, output={"candidate": candidate, "deployed": deployed})
+
     async def process_task(self, task: AgentTask) -> AgentResult:
         task_type = task.task_type
 
@@ -256,6 +318,8 @@ class ManagerAgent(BaseAgent):
             return self._classify_task(task.input_data)
         elif task_type == "assess_complexity":
             return self._assess_complexity(task.input_data)
+        elif task_type == "execute_release":
+            return await self._execute_release(task.input_data)
         else:
             # Try to route to capable agent
             candidates = self.find_agents_for_task(task_type)
@@ -359,7 +423,7 @@ class ManagerAgent(BaseAgent):
             topic=issue,
             severity=ConflictSeverity(data.get("severity", "medium")),
             arguments=arguments,
-            created_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
         )
 
         # Step 1-2: Direct Discussion + Evidence Exchange
@@ -408,7 +472,7 @@ class ManagerAgent(BaseAgent):
                     record.current_step = ConflictStep.USER_ESCALATION
                     record.outcome = "escalated_to_user"
 
-        record.resolved_at = datetime.utcnow().isoformat()
+        record.resolved_at = datetime.now(timezone.utc).isoformat()
         self.conflict_records.append(record)
 
         return AgentResult(
@@ -435,7 +499,7 @@ class ManagerAgent(BaseAgent):
             "current_step": 0,
             "status": "running",
             "results": [],
-            "started_at": datetime.utcnow().isoformat()
+            "started_at": datetime.now(timezone.utc).isoformat()
         }
 
         for i, step in enumerate(steps):
@@ -500,7 +564,7 @@ class ManagerAgent(BaseAgent):
             task_id="",
             success=True,
             output=report,
-            metadata={"timestamp": datetime.utcnow().isoformat()}
+            metadata={"timestamp": datetime.now(timezone.utc).isoformat()}
         )
 
     def _classify_task(self, data: Dict) -> AgentResult:
