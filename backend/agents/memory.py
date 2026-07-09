@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 from sqlalchemy.orm import Session
 
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage
 from backend.core.database import SessionLocal
 from backend.models.memory import ProjectMemory, MemoryCategory, ConfidenceLevel
-from backend.models.project import Project
+
 
 
 class MemoryAgent(BaseAgent):

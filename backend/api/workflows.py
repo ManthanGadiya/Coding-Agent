@@ -8,8 +8,8 @@ from backend.core.database import get_db
 from backend.models.workflow import Workflow, WorkflowStatus, WorkflowType, WorkflowStep
 from backend.agents.manager import ManagerAgent
 from backend.core.workflow_engine import (
-    get_workflow_blueprint, classify_task, ComplexityLevel, WorkflowCategory,
-    WORKFLOW_BUILDERS, WorkflowBlueprint, PipelineState,
+    get_workflow_blueprint, classify_task, ComplexityLevel,
+    WORKFLOW_BUILDERS, WorkflowBlueprint,
     evaluate_quality_gate, evaluate_completion_criteria,
     get_workflow_for_complexity, workflow_controller,
 )
@@ -60,8 +60,7 @@ class WorkflowResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 @router.post("", response_model=WorkflowResponse, status_code=201)
