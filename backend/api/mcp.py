@@ -1,9 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional
 
 from backend.mcp import (
-    MCPServerConfig, TransportType, MCPResponse,
+    MCPServerConfig, TransportType,
     register_server, remove_server, get_server, list_servers,
     list_connected, get_log,
 )
