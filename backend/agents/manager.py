@@ -8,6 +8,8 @@ from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage,
 from backend.core.workflow_engine import ComplexityLevel, workflow_controller
 from backend.core.learning import LearningSystem
 from backend.core.autonomy import AutonomyMode, AutonomyController
+from backend.decision_runtime.decision_engine import DecisionRequest, runtime_engine
+from backend.decision_runtime.environment_mode import EnvironmentMode
 from backend.core.database import SessionLocal
 from backend.models.task import Task, TaskStatus
 from backend.agents.coder import CoderAgent
@@ -194,6 +196,17 @@ class ManagerAgent(BaseAgent):
 
     async def run_goal(self, goal: str, context: Optional[Dict] = None) -> Dict[str, Any]:
         goal_context = context or {}
+        if goal_context.get("use_runtime"):
+            req = DecisionRequest(
+                task=goal,
+                context=goal_context,
+                source="manager-agent",
+                mode=EnvironmentMode.FULL if self.autonomy.mode == AutonomyMode.FULL else EnvironmentMode.BUILD,
+                skip_approvals=goal_context.get("skip_approvals", False),
+                prefer_local=True,
+            )
+            result = runtime_engine.decide(req)
+            return {"goal": goal, "source": "decision_runtime", **result}
         classification = self._classify_task({"description": goal})
         task_type = classification.output["task_type"]
         complexity = self._assess_complexity({"description": goal})
