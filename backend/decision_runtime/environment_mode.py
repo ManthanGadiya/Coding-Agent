@@ -5,6 +5,7 @@ from enum import Enum
 class EnvironmentMode(str, Enum):
     TEACHING = "teaching"
     BUILD = "build"
+    FULL = "full"
     AUTONOMOUS = "autonomous"
 
 
@@ -16,6 +17,10 @@ MODE_PRIORITIES: Dict[EnvironmentMode, List[str]] = {
     EnvironmentMode.BUILD: [
         "maintainability", "correctness", "reliability",
         "learning", "performance", "speed",
+    ],
+    EnvironmentMode.FULL: [
+        "correctness", "safety", "reliability", "maintainability",
+        "security", "performance", "learning", "speed",
     ],
     EnvironmentMode.AUTONOMOUS: [
         "correctness", "reliability", "maintainability",

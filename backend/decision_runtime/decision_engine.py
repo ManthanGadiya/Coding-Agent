@@ -16,6 +16,8 @@ from backend.decision_runtime.conflict_resolver import conflict_resolver
 from backend.decision_runtime.completion_validator import completion_validator
 from backend.decision_runtime.memory_hooks import memory_hooks
 from backend.decision_runtime.logger import decision_logger, LogLevel
+# ponytail: lazy import to break circular dependency with backend.agents.manager
+# agents are created via _dispatch_agent which imports locally
 
 
 @dataclass
@@ -47,6 +49,7 @@ class DecisionContext:
 class RuntimeEngine:
     def __init__(self):
         self._history: List[Dict[str, Any]] = []
+        self._dispatched: Dict[str, Dict[str, Any]] = {}
 
     def decide(self, request: DecisionRequest) -> Dict[str, Any]:
         ctx = DecisionContext(
@@ -85,20 +88,22 @@ class RuntimeEngine:
         self._exec_step(ctx, RuntimeState.MCP_SELECTION, lambda: self._step_mcps(ctx, request))
         self._exec_step(ctx, RuntimeState.MODEL_SELECTION, lambda: self._step_model(ctx, request))
         self._exec_step(ctx, RuntimeState.APPROVAL_CHECK, lambda: self._step_approvals(ctx, request))
-        self._exec_step(ctx, RuntimeState.RESEARCHING, lambda: None)
-        self._exec_step(ctx, RuntimeState.ARCHITECTING, lambda: None)
+        self._exec_step(ctx, RuntimeState.RESEARCHING, lambda: self._set_agent_output(ctx, "planner", "research", request.task))
+        self._exec_step(ctx, RuntimeState.ARCHITECTING, lambda: self._set_agent_output(ctx, "architect", "design_architecture", request.task))
         self._exec_step(ctx, RuntimeState.PLANNING, lambda: self._step_execute(ctx))
-        self._exec_step(ctx, RuntimeState.APPROVING, lambda: None)
-        self._exec_step(ctx, RuntimeState.IMPLEMENTING, lambda: None)
-        self._exec_step(ctx, RuntimeState.TESTING, lambda: None)
-        self._exec_step(ctx, RuntimeState.REVIEWING, lambda: None)
-        self._exec_step(ctx, RuntimeState.DOCUMENTING, lambda: None)
+        self._exec_step(ctx, RuntimeState.APPROVING, lambda: self._set_agent_output(ctx, "reviewer", "approve", request.task))
+        self._exec_step(ctx, RuntimeState.IMPLEMENTING, lambda: self._set_agent_output(ctx, "coder", "implement", request.task))
+        self._exec_step(ctx, RuntimeState.TESTING, lambda: self._set_agent_output(ctx, "tester", "testing", request.task))
+        self._exec_step(ctx, RuntimeState.REVIEWING, lambda: self._set_agent_output(ctx, "reviewer", "review", request.task))
+        self._exec_step(ctx, RuntimeState.DOCUMENTING, lambda: self._set_agent_output(ctx, "docs", "document", request.task))
         self._exec_step(ctx, RuntimeState.VALIDATING, lambda: self._step_validate(ctx))
-        self._exec_step(ctx, RuntimeState.MEMORY_UPDATING, lambda: self._step_memory(ctx))
+        self._exec_step(ctx, RuntimeState.MEMORY_UPDATING, lambda: self._step_memory(ctx, request))
         state_machine.transition(ctx.state.instance_id, RuntimeState.COMPLETED,
                                   "All phases completed")
 
         result = self._build_final_result(ctx, request)
+
+        memory_hooks.record_decision(result)
 
         decision_trace.resolve(
             trace.decision_id,
@@ -132,6 +137,48 @@ class RuntimeEngine:
             decision_logger.error("engine.step_failed", str(e),
                                   source="decision_engine",
                                   correlation_id=ctx.request.correlation_id)
+
+    _AGENT_CLASSES = {
+        "architect": "architect", "planner": "planner",
+        "coder": "coder", "tester": "tester",
+        "reviewer": "reviewer", "debugger": "debugger",
+        "memory": "memory", "docs": "planner",
+    }
+
+    def _set_agent_output(self, ctx: DecisionContext, role: str, task_type: str, task: str):
+        result = self._dispatch_agent(role, task_type, {
+            "goal": task, "task_type": task_type,
+            "context": ctx.request.context,
+            "correlation_id": ctx.request.correlation_id,
+        })
+        self._dispatched[role] = result
+        if result.get("status") == "error":
+            ctx.errors.append(f"{role}: {result.get('error')}")
+
+    def _dispatch_agent(self, agent_type: str, task_desc: str,
+                        input_data: Dict[str, Any]) -> Dict[str, Any]:
+        from backend.agents import create_agent
+        from backend.agents.base import AgentTask
+        cls = self._AGENT_CLASSES.get(agent_type)
+        if not cls:
+            return {"status": "skipped", "reason": f"No agent class for {agent_type}"}
+        try:
+            import asyncio
+            agent = create_agent(cls)
+            if not agent:
+                return {"status": "error", "error": f"Failed to create agent {cls}"}
+            task = AgentTask(
+                task_id=f"rt-{agent_type}-{id(input_data)}",
+                task_type=agent_type,
+                description=task_desc,
+                input_data=input_data,
+            )
+            result = asyncio.run(agent.execute_task(task))
+            return {"status": "completed" if result.success else "failed",
+                    "output": str(result.output)[:1000] if result.output else "",
+                    "error": result.error}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
 
     def _step_classify(self, ctx: DecisionContext, request: DecisionRequest):
         ctx.classification = task_classifier.classify(
@@ -214,9 +261,29 @@ class RuntimeEngine:
         if not validation.get("completable"):
             ctx.errors.append("Validation blocked completion")
 
-    def _step_memory(self, ctx: DecisionContext):
+    def _step_memory(self, ctx: DecisionContext, request: DecisionRequest):
         for error in ctx.errors:
             memory_hooks.record_error(error, {"correlation_id": ctx.request.correlation_id})
+            try:
+                from backend.core.learning import LearningSystem
+                LearningSystem().record_failure(
+                    description=error, category="processing",
+                    severity="medium", impact="decision_pipeline",
+                    affected_components=["decision_engine"],
+                    root_cause=error, resolution="",
+                )
+            except Exception:
+                pass
+        store_result = self._dispatch_agent("memory", "store", {
+            "goal": request.task,
+            "task_type": "store",
+            "key": f"decision-{request.correlation_id or id(ctx)}",
+            "value": str(ctx.result or {}),
+            "tags": [ctx.classification.task_type.value if ctx.classification else "unknown"],
+            "correlation_id": ctx.request.correlation_id,
+        })
+        if store_result.get("status") == "error":
+            ctx.errors.append(f"memory-store: {store_result.get('error')}")
 
     def _build_plan(self, ctx: DecisionContext) -> Dict[str, Any]:
         plan = {
@@ -263,20 +330,35 @@ class RuntimeEngine:
         return tasks
 
     def _validate_execution(self, ctx: DecisionContext) -> Dict:
-        return completion_validator.validate({
-            "requirements_met": True,
-            "architecture_validated": ctx.classification.task_type in (
-                TaskType.ARCHITECTURE, TaskType.SYSTEM_DESIGN,
-            ),
-            "implementation_complete": True,
-            "tests_passed": True,
-            "review_passed": True,
-            "documentation_updated": False,
-            "memory_updated": True,
+        from backend.decision_runtime.escalation import escalation_manager, EscalationLevel
+        arch = self._dispatched.get("architect", {})
+        impl = self._dispatched.get("coder", {})
+        test = self._dispatched.get("tester", {})
+        rev = self._dispatched.get("reviewer", {})
+        docs = self._dispatched.get("docs", {})
+        mem = self._dispatched.get("memory", {})
+        validation = completion_validator.validate({
+            "requirements_met": arch.get("status") in ("completed", None),
+            "architecture_validated": impl.get("status") in ("completed", None),
+            "implementation_complete": impl.get("status") == "completed",
+            "tests_passed": test.get("status") == "completed",
+            "review_passed": rev.get("status") == "completed",
+            "documentation_updated": docs.get("status") == "completed",
+            "memory_updated": mem.get("status") in ("completed", None),
             "risks_documented": True,
             "constitution_compliant": True,
             "correlation_id": ctx.request.correlation_id,
         })
+        if not validation.get("completable"):
+            escalation_manager.escalate(
+                EscalationLevel.STEP_BLOCKER,
+                source="decision_engine",
+                title=f"Validation failed for {ctx.request.task[:80]}",
+                description=f"Blocking checks: {validation.get('blocking_issues', [])}",
+                data=validation,
+                correlation_id=ctx.request.correlation_id,
+            )
+        return validation
 
     def _build_final_result(self, ctx: DecisionContext, request: DecisionRequest) -> Dict[str, Any]:
         result = {

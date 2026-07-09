@@ -14,6 +14,16 @@ async def init_runtime(mode: str = "build"):
     agents = agent_registry.list()
     skills = skill_registry.list()
 
+    # ponytail: bridge runtime SkillDef registry -> backend.skills BaseSkill instances
+    try:
+        import backend.skills as runtime_skills
+        registered_names = {s.name for s in skills}
+        for runtime_skill in runtime_skills.list_skills():
+            if runtime_skill["name"] not in registered_names:
+                logger.debug("Runtime skill %s not in decision registry (OK)", runtime_skill["name"])
+    except Exception:
+        logger.debug("backend.skills unavailable (OK)")
+
     logger.info("Decision runtime initialized (mode=%s, agents=%d, skills=%d)",
                 mode, len(agents), len(skills))
     logger.debug("Registered agents: %s", [a.agent_type for a in agents])
