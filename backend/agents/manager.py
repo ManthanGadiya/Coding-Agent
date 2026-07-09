@@ -196,7 +196,8 @@ class ManagerAgent(BaseAgent):
 
     async def run_goal(self, goal: str, context: Optional[Dict] = None) -> Dict[str, Any]:
         goal_context = context or {}
-        if goal_context.get("use_runtime"):
+        # ponytail: FULL autonomy mode always routes through decision runtime
+        if goal_context.get("use_runtime") or self.autonomy.mode == AutonomyMode.FULL:
             req = DecisionRequest(
                 task=goal,
                 context=goal_context,
