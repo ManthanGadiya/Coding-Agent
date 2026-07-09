@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
 from backend.skills import BaseSkill, SkillResult, register
 from backend.models.llm import LLMRequest
 

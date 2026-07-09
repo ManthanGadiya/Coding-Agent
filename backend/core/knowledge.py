@@ -1,8 +1,5 @@
 from typing import Dict, List, Optional
 from datetime import datetime
-from dataclasses import dataclass, field
-from collections import Counter
-import re
 
 from backend.core.database import EngineSession
 from backend.models.learning import (

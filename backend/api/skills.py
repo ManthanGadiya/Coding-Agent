@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from backend.skills import get, list_skills, get_log
-from backend.skills.builtin import CodeGenerationSkill, CodeReviewSkill, TaskAnalysisSkill
+
 from backend.core.model_router import get_model_router
-from backend.tools import TOOL_REGISTRY
+
 
 router = APIRouter(tags=["skills"])
 
