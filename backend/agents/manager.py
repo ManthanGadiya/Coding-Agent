@@ -118,6 +118,74 @@ class ManagerAgent(BaseAgent):
         "reviewer": "reviewer-1", "memory": "memory-1",
     }
 
+    def _build_report(self, goal: str, task_type: str, complexity_label: str, pipeline, results: List[Dict]) -> Dict[str, Any]:
+        success = all(r["status"] == "completed" for r in results)
+        passed = [r for r in results if r["status"] == "completed"]
+        failed = [r for r in results if r["status"] != "completed"]
+        return {
+            "goal": goal, "classification": task_type, "complexity": complexity_label,
+            "pipeline_id": pipeline.id,
+            "pipeline_status": pipeline.state.value if hasattr(pipeline, "state") else "completed" if success else "failed",
+            "steps": results, "success": success,
+            "total_steps": len(results), "completed_steps": len(passed), "failed_steps": len(failed),
+            "completion_criteria": {
+                "all_steps_completed": success,
+                "no_errors": len(failed) == 0,
+                "has_output": any(r.get("output") for r in results),
+            },
+            "pipeline_status_summary": "All steps completed" if success else f"Failed at step: {failed[0].get('step', 'unknown') if failed else 'N/A'}",
+        }
+
+    async def _retrieve_memory_context(self, goal: str, project_id: Optional[str] = None) -> str:
+        mem_agent = self.get_agent("memory-1")
+        if not mem_agent:
+            return ""
+        result = await mem_agent.execute_task(AgentTask(
+            task_id="mem-retrieve", task_type="search",
+            description="Retrieve context for goal",
+            input_data={"project_id": project_id, "query_text": goal, "limit": 5},
+        ))
+        if not result.success or not result.output:
+            return ""
+        entries = result.output if isinstance(result.output, list) else []
+        return "\n".join(f"- [{e.get('category','?')}] {e.get('key','')}: {str(e.get('value',''))[:200]}" for e in entries)
+
+    async def _debugger_loop(self, goal: str, goal_context: Dict, task_type: str, complexity_label: str, pipeline, step_def: Dict, max_retries: int = 3) -> Dict[str, Any]:
+        test_agent = self.get_agent("tester-1")
+        debugger = self.get_agent("debugger-1")
+        coder = self.get_agent("coder-1")
+        if not test_agent or not debugger or not coder:
+            return {"status": "failed", "error": "Missing agents for debugger loop"}
+        for attempt in range(1, max_retries + 1):
+            debug_task = AgentTask(
+                task_id=f"{pipeline.id}-debug-{attempt}",
+                task_type="diagnose",
+                description=f"Debug attempt {attempt}",
+                input_data={"error": step_def.get("error", ""), "context": str(goal_context), "code_snippet": ""},
+            )
+            debug_result = await debugger.execute_task(debug_task)
+            fix_task = AgentTask(
+                task_id=f"{pipeline.id}-fix-{attempt}",
+                task_type="implement",
+                description="Fix bugs from debugger",
+                input_data={"goal": f"Fix bugs: {debug_result.output}", "task_type": task_type, "complexity": complexity_label, "context": goal_context, "step": step_def},
+            )
+            await coder.execute_task(fix_task)
+            test_result = await self._execute_step(test_agent, goal, goal_context, task_type, complexity_label, pipeline, step_def, "testing", "test")
+            if test_result["status"] == "completed":
+                return {**test_result, "debug_attempts": attempt}
+        return {"status": "failed", "error": f"Debugger loop exhausted after {max_retries} attempts", "debug_attempts": max_retries}
+
+    async def _execute_step(self, agent: BaseAgent, goal: str, goal_context: Dict, task_type: str, complexity_label: str, pipeline, step_def: Dict, task_type_for_step: str, agent_name: str) -> Dict[str, Any]:
+        task = AgentTask(
+            task_id=f"{pipeline.id}-step-{id(step_def)}",
+            task_type=task_type_for_step,
+            description=step_def["description"],
+            input_data={"goal": goal, "task_type": task_type, "complexity": complexity_label, "context": goal_context, "step": step_def},
+        )
+        result = await agent.execute_task(task)
+        return {"step": step_def["name"], "agent": agent_name, "status": "completed" if result.success else "failed", "task_type": task_type_for_step, "output": str(result.output)[:500], "error": result.error, "raw_output": result.output}
+
     async def run_goal(self, goal: str, context: Optional[Dict] = None) -> Dict[str, Any]:
         goal_context = context or {}
         classification = self._classify_task({"description": goal})
@@ -128,6 +196,9 @@ class ManagerAgent(BaseAgent):
         complexity_enum = ComplexityLevel(level_map.get(complexity_label, "moderate"))
         category = workflow_controller.enforce_smallest_workflow("task_pipeline", complexity_enum)
         pipeline = workflow_controller.create_pipeline(category, complexity_enum.value)
+        mem_context = await self._retrieve_memory_context(goal, goal_context.get("project_id"))
+        if mem_context:
+            goal_context["memory_context"] = mem_context
         results: List[Dict[str, Any]] = []
         for i, step_def in enumerate(pipeline.steps):
             agent_name = step_def["agent"]
@@ -139,41 +210,32 @@ class ManagerAgent(BaseAgent):
                 results.append(step_result)
                 break
             task_type_for_step = self.STEP_TASK_MAP.get(step_def["name"], "general")
-            task = AgentTask(
-                task_id=f"{pipeline.id}-step-{i}",
-                task_type=task_type_for_step,
-                description=step_def["description"],
-                input_data={"goal": goal, "task_type": task_type, "complexity": complexity_label, "context": goal_context, "step": step_def},
-            )
-            result = await agent.execute_task(task)
-            step_result = {"step": step_def["name"], "agent": agent_id, "status": "completed" if result.success else "failed", "task_type": task_type_for_step, "output": str(result.output)[:500], "error": result.error}
+            step_result = await self._execute_step(agent, goal, goal_context, task_type, complexity_label, pipeline, step_def, task_type_for_step, agent_name)
             results.append(step_result)
-            workflow_controller.transition(pipeline.id, {"status": "completed" if result.success else "failed", "output": result.output, "error": result.error})
+            workflow_controller.transition(pipeline.id, {"status": "completed" if step_result["status"] == "completed" else "failed", "output": step_result.get("raw_output"), "error": step_result.get("error")})
             mem_agent = self.get_agent("memory-1")
-            if mem_agent and result.success:
+            if mem_agent and step_result["status"] == "completed":
                 await mem_agent.execute_task(AgentTask(
                     task_id=f"{pipeline.id}-mem-{i}",
                     task_type="store",
                     description="Auto-store step result",
-                    input_data={"key": f"step-{pipeline.id}-{i}", "value": str(result.output)[:500], "project_id": goal_context.get("project_id"), "tags": [task_type_for_step, "auto"]},
+                    input_data={"key": f"step-{pipeline.id}-{i}", "value": str(step_result.get("raw_output", ""))[:500], "project_id": goal_context.get("project_id"), "tags": [task_type_for_step, "auto"]},
                 ))
-            if not result.success:
+            if step_result["status"] != "completed":
+                if task_type_for_step == "run_test":
+                    debug_result = await self._debugger_loop(goal, goal_context, task_type, complexity_label, pipeline, step_def)
+                    if debug_result["status"] == "completed":
+                        results.append({"step": "debugger_recovery", "agent": "debugger-1", "status": "completed", "task_type": "debug_loop", "output": f"Recovered after {debug_result.get('debug_attempts', '?')} attempts", "error": None})
+                        continue
                 topic = f"goal-failure-{pipeline.id}"
                 LearningSystem().create_lesson(
-                    topic=topic, description=f"Step '{step_def['name']}' failed: {result.error}",
-                    evidence=[f"goal: {goal}", f"agent: {agent_id}", f"step: {step_def['name']}", f"error: {result.error or 'unknown'}"],
-                    confidence="high", scope="agent",                     supporting_projects=[goal_context["project_id"]] if goal_context and goal_context.get("project_id") else [],
+                    topic=topic, description=f"Step '{step_def['name']}' failed: {step_result.get('error')}",
+                    evidence=[f"goal: {goal}", f"agent: {agent_id}", f"step: {step_def['name']}", f"error: {step_result.get('error') or 'unknown'}"],
+                    confidence="high", scope="agent", supporting_projects=[goal_context["project_id"]] if goal_context and goal_context.get("project_id") else [],
                     author=self.agent_id
                 )
                 break
-        pipeline_status = workflow_controller.get_status(pipeline.id)
-        return {
-            "goal": goal, "classification": task_type, "complexity": complexity_label,
-            "pipeline_id": pipeline.id,
-            "pipeline_status": pipeline_status.state.value if pipeline_status else "unknown",
-            "steps": results, "success": all(r["status"] == "completed" for r in results),
-            "total_steps": len(pipeline.steps), "completed_steps": len([r for r in results if r["status"] == "completed"]),
-        }
+        return self._build_report(goal, task_type, complexity_label, pipeline, results)
 
     async def process_task(self, task: AgentTask) -> AgentResult:
         task_type = task.task_type
