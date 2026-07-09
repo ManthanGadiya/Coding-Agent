@@ -33,7 +33,7 @@ export default function UsersPage() {
 
       {showCreate && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-3 animate-in">
-          <input value={form.name} onChange={(e) => setForm(f => ({...f, name: e.target.value}))}
+          <input aria-label="User name" value={form.name} onChange={(e) => setForm(f => ({...f, name: e.target.value}))}
             placeholder="Name" className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
           <select value={form.role} onChange={(e) => setForm(f => ({...f, role: e.target.value}))}
             className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">

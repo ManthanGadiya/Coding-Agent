@@ -165,7 +165,7 @@ export default function MemoryPage() {
           ) : (
             <div className="bg-card border border-border rounded-xl divide-y divide-border">
               {data.entries.map((e: any) => (
-                <div key={e.id} className="px-5 py-4 cursor-pointer hover:bg-card-hover transition-colors" onClick={() => { setSelected(e); setVersions([]); }}>
+                <button type="button" className="w-full text-left px-5 py-4 hover:bg-card-hover transition-colors" onClick={() => { setSelected(e); setVersions([]); }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <code className="text-sm font-mono text-accent">{e.title || e.key}</code>
@@ -184,7 +184,7 @@ export default function MemoryPage() {
                       ))}
                     </div>
                   )}
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -197,12 +197,11 @@ export default function MemoryPage() {
             <div className="bg-card border border-border rounded-xl p-5">
               <h2 className="text-sm font-semibold mb-3">Retention Health</h2>
               <div className="grid grid-cols-3 gap-3">
-                {Object.entries(retention).filter(([k]) => typeof retention[k] === "number").map(([k, v]) => (
-                  <div key={k} className="bg-surface rounded-lg p-3">
-                    <div className="text-[10px] text-muted capitalize">{k.replace(/_/g, " ")}</div>
-                    <div className="text-lg font-mono font-bold text-accent mt-1">{v as number}</div>
-                  </div>
-                ))}
+                {Object.entries(retention).reduce<React.ReactNode[]>((acc, [k, v]) => {
+                  if (typeof v !== "number") return acc;
+                  acc.push(<div key={k} className="bg-surface rounded-lg p-3"><div className="text-[10px] text-muted capitalize">{k.replace(/_/g, " ")}</div><div className="text-lg font-mono font-bold text-accent mt-1">{v}</div></div>);
+                  return acc;
+                }, [])}
               </div>
             </div>
           )}

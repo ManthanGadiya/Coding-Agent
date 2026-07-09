@@ -44,8 +44,7 @@ class AgentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # --- Manager routes (must be before /{agent_id} routes) ---
@@ -91,6 +90,33 @@ async def run_goal(req: RunGoalRequest):
     mgr = get_manager()
     result = await mgr.run_goal(req.goal, req.context)
     return result
+
+
+class AutonomousRequest(BaseModel):
+    poll_interval: int = 10
+
+
+@router.post("/autonomous/start")
+async def start_autonomous(req: AutonomousRequest):
+    mgr = get_manager()
+    await mgr.start_autonomous(req.poll_interval)
+    return {"status": "started", "mode": "full", "poll_interval": req.poll_interval}
+
+
+@router.post("/autonomous/stop")
+async def stop_autonomous():
+    mgr = get_manager()
+    await mgr.stop_autonomous()
+    return {"status": "stopped", "mode": "agent"}
+
+
+@router.get("/autonomous/status")
+def autonomous_status():
+    mgr = get_manager()
+    return {
+        "mode": mgr.autonomy.mode.value,
+        "running": mgr._loop_task is not None and not mgr._loop_task.done(),
+    }
 
 
 # --- CRUD routes ---

@@ -105,7 +105,7 @@ export default function ReleasesPage() {
               {selectedPipe.steps && (
                 <div className="space-y-1 mb-3">
                   {selectedPipe.steps.map((s: any, i: number) => (
-                    <div key={i} className="text-xs font-mono bg-surface rounded px-3 py-1.5">{s}</div>
+                    <div key={s ?? i} className="text-xs font-mono bg-surface rounded px-3 py-1.5">{s}</div>
                   ))}
                 </div>
               )}
@@ -128,8 +128,7 @@ export default function ReleasesPage() {
           )}
 
           {pipelines.map((p: any) => (
-            <div key={p.id} onClick={() => loadPipe(p.id)}
-              className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-accent/30">
+            <button type="button" className="w-full text-left bg-card border border-border rounded-xl p-4 hover:border-accent/30" onClick={() => loadPipe(p.id)}>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-mono">{p.id}</span>
                 <div className="flex gap-3 text-[10px] text-muted font-mono">
@@ -141,17 +140,17 @@ export default function ReleasesPage() {
                   <span>Step {p.current_step}/{p.total_steps}</span>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
-
+ 
       {tab === "release" && (
         <div className="space-y-4 animate-in">
           <div className="bg-card border border-border rounded-xl p-5">
             <h2 className="text-sm font-semibold mb-3">Create Release Candidate</h2>
             <div className="flex gap-2">
-              <input value={version} onChange={(e) => setVersion(e.target.value)} placeholder="e.g. 1.2.3"
+              <input aria-label="Version number" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="e.g. 1.2.3"
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm w-32" />
               <select value={relType} onChange={(e) => setRelType(e.target.value)}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
@@ -197,7 +196,7 @@ export default function ReleasesPage() {
               )}
 
               <div className="flex gap-2 mb-3">
-                <input value={checkName} onChange={(e) => setCheckName(e.target.value)} placeholder="Check name"
+                <input aria-label="Check name" value={checkName} onChange={(e) => setCheckName(e.target.value)} placeholder="Check name"
                   className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs flex-1" />
                 <button type="button" onClick={setCheck} disabled={!checkName}
                   className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium disabled:opacity-40">Add Check</button>

@@ -85,14 +85,14 @@ export default function SettingsPage() {
           <div className="bg-card border border-border rounded-xl p-5">
             <h2 className="text-sm font-semibold mb-3">Add MCP Server</h2>
             <div className="flex flex-wrap gap-2 mb-3">
-              <input value={serverName} onChange={(e) => setServerName(e.target.value)} placeholder="Server name"
+              <input aria-label="Server name" value={serverName} onChange={(e) => setServerName(e.target.value)} placeholder="Server name"
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm flex-1" />
               <select value={serverType} onChange={(e) => setServerType(e.target.value)}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
                 <option value="stdio">STDIO</option>
                 <option value="sse">SSE</option>
               </select>
-              <input value={serverCmd} onChange={(e) => setServerCmd(e.target.value)}
+              <input aria-label="Server command or URL" value={serverCmd} onChange={(e) => setServerCmd(e.target.value)}
                 placeholder={serverType === "stdio" ? "Command (e.g. npx ...)" : "URL (e.g. https://..."}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm flex-[2]" />
               <button type="button" onClick={addServer} disabled={!serverName || !serverCmd}

@@ -137,7 +137,7 @@ export default function AgentsPage() {
                 </div>
                 <p className="text-sm mb-2">{d.message || d.description}</p>
                 <div className="flex gap-2">
-                  <input value={resInput[d.id || d.notification_id] || ""} onChange={(e) => setResInput(r => ({...r, [d.id || d.notification_id]: e.target.value}))}
+                  <input aria-label="Resolution note" value={resInput[d.id || d.notification_id] || ""} onChange={(e) => setResInput(r => ({...r, [d.id || d.notification_id]: e.target.value}))}
                     placeholder="Resolution note" className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-xs" />
                   <button type="button" onClick={() => resolveDisagreement(d.id || d.notification_id)}
                     className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Resolve</button>

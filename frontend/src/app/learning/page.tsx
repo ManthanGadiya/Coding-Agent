@@ -117,11 +117,11 @@ export default function LearningPage() {
             className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">{createLesson.show ? "Cancel" : "+ New Lesson"}</button>
           {createLesson.show && (
             <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-              <input value={createLesson.topic} onChange={(e) => setCreateLesson(c => ({...c, topic: e.target.value}))}
+              <input aria-label="Lesson topic" value={createLesson.topic} onChange={(e) => setCreateLesson(c => ({...c, topic: e.target.value}))}
                 placeholder="Topic" className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
-              <textarea value={createLesson.description} onChange={(e) => setCreateLesson(c => ({...c, description: e.target.value}))}
+              <textarea aria-label="Lesson description" value={createLesson.description} onChange={(e) => setCreateLesson(c => ({...c, description: e.target.value}))}
                 placeholder="Description" className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm min-h-[60px]" />
-              <select value={createLesson.scope} onChange={(e) => setCreateLesson(c => ({...c, scope: e.target.value}))}
+              <select aria-label="Lesson scope" value={createLesson.scope} onChange={(e) => setCreateLesson(c => ({...c, scope: e.target.value}))}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
                 {["local", "project", "global"].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -176,7 +176,7 @@ export default function LearningPage() {
               <p className="text-xs text-muted mt-1">{p.expected_benefit}</p>
               {p.status === "pending" && (
                 <div className="flex gap-2 mt-2">
-                  <input value={proposalReview[p.proposal_id] || ""} onChange={(e) => setProposalReview(r => ({...r, [p.proposal_id]: e.target.value}))}
+                  <input aria-label="Proposal review notes" value={proposalReview[p.proposal_id] || ""} onChange={(e) => setProposalReview(r => ({...r, [p.proposal_id]: e.target.value}))}
                     placeholder="Review notes" className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-xs" />
                   <button type="button" onClick={() => reviewProposal(p.proposal_id)}
                     className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Review</button>

@@ -152,14 +152,14 @@ export default function WorkflowsPage() {
           <div className="bg-card border border-border rounded-xl p-5">
             <h2 className="text-sm font-semibold mb-3">Quality Gate</h2>
             <div className="flex gap-2 mb-3">
-              <input value={qualityGate.input} onChange={(e) => setQualityGate(g => ({...g, input: e.target.value}))}
+              <input aria-label="Quality gate check description" value={qualityGate.input} onChange={(e) => setQualityGate(g => ({...g, input: e.target.value}))}
                 placeholder="Check description" className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm"
                 onKeyDown={(e) => e.key === "Enter" && addGateCheck()} />
               <button type="button" onClick={addGateCheck} className="px-3 py-2 bg-surface border border-border rounded-lg text-sm">Add</button>
             </div>
             {qualityGate.checks.length > 0 && (
               <div className="space-y-1 mb-3">{qualityGate.checks.map((c, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs font-mono bg-surface rounded-lg px-3 py-1.5">
+                <div key={c ?? i} className="flex items-center gap-2 text-xs font-mono bg-surface rounded-lg px-3 py-1.5">
                   <span className="text-accent">{i + 1}.</span>
                   <span className="flex-1">{c}</span>
                   <button type="button" onClick={() => setQualityGate(g => ({...g, checks: g.checks.filter((_, j) => j !== i)}))} className="text-red-500">✕</button>
@@ -180,7 +180,7 @@ export default function WorkflowsPage() {
       {ui.tab === "executor" && (
         <div className="space-y-4 animate-in">
           <div className="flex gap-2 items-center">
-            <input id="execName" placeholder="workflow name" className="bg-surface border border-border rounded-lg px-3 py-2 text-sm flex-1"
+            <input id="execName" aria-label="Workflow name to execute" placeholder="workflow name" className="bg-surface border border-border rounded-lg px-3 py-2 text-sm flex-1"
               onKeyDown={(e) => { if (e.key === "Enter") { const inp = document.getElementById("execName") as HTMLInputElement; api.executor.run(inp.value).then(() => { inp.value = ""; refreshExec(); }); }}} />
             <button type="button" onClick={refreshExec} className="px-3 py-2 bg-surface border border-border rounded-lg text-sm">Refresh</button>
           </div>
@@ -208,28 +208,27 @@ export default function WorkflowsPage() {
                 <div className="space-y-2 mb-3">
                   <div className="text-xs text-muted">Steps</div>
                   {selectedInst.steps.map((s: any, i: number) => (
-                    <div key={i} className="flex items-center gap-3 bg-surface rounded-lg px-3 py-2">
+                    <div key={s.name ?? s.step_name ?? i} className="flex items-center gap-3 bg-surface rounded-lg px-3 py-2">
                       <div className={`w-2 h-2 rounded-full ${s.status === "completed" ? "bg-success" : s.status === "failed" ? "bg-red-500" : s.status === "running" ? "bg-accent animate-pulse" : "bg-yellow-500"}`} />
                       <span className="text-xs font-mono flex-1">{s.name ?? s.step_name ?? `step-${i}`}</span>
-                      {s.attempts > 1 && <span className="text-[10px] text-muted">retry {s.attempts}</span>}
-                      {s.error && <span className="text-[10px] text-red-400 truncate max-w-[200px]" title={s.error}>{s.error}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-2">
-                {selectedInst.status === "running" && <button type="button" onClick={() => execAction(selectedInst.instance_id, "pause")} className="px-3 py-1.5 bg-yellow-500/10 text-yellow-500 rounded-lg text-xs font-medium">Pause</button>}
-                {selectedInst.status === "paused" && <button type="button" onClick={() => execAction(selectedInst.instance_id, "resume")} className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Resume</button>}
-                {(selectedInst.status === "running" || selectedInst.status === "paused") && <button type="button" onClick={() => execAction(selectedInst.instance_id, "cancel")} className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-xs font-medium">Cancel</button>}
+                {s.attempts > 1 && <span className="text-[10px] text-muted">retry {s.attempts}</span>}
+                {s.error && <span className="text-[10px] text-red-400 truncate max-w-[200px]" title={s.error}>{s.error}</span>}
               </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          {selectedInst.status === "running" && <button type="button" onClick={() => execAction(selectedInst.instance_id, "pause")} className="px-3 py-1.5 bg-yellow-500/10 text-yellow-500 rounded-lg text-xs font-medium">Pause</button>}
+          {selectedInst.status === "paused" && <button type="button" onClick={() => execAction(selectedInst.instance_id, "resume")} className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Resume</button>}
+          {(selectedInst.status === "running" || selectedInst.status === "paused") && <button type="button" onClick={() => execAction(selectedInst.instance_id, "cancel")} className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-xs font-medium">Cancel</button>}
+        </div>
             </div>
           )}
           {execInstances.length === 0 && !selectedInst && (
             loaded.exec ? <p className="text-sm text-muted py-8 text-center">No executor instances. Run a workflow to see instances here.</p> : <ListSkeleton rows={2} />
           )}
           {execInstances.map((inst: any) => (
-            <div key={inst.instance_id} onClick={() => loadExecDetail(inst.instance_id)}
-              className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-accent/30 transition-colors">
+            <button type="button" className="w-full text-left bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors" onClick={() => loadExecDetail(inst.instance_id)}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-mono truncate flex-1">{inst.instance_id}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-mono ${inst.status === "completed" ? "bg-success/10 text-success" : inst.status === "running" ? "bg-accent/10 text-accent" : inst.status === "failed" ? "bg-red-500/10 text-red-500" : inst.status === "cancelled" ? "bg-muted/10 text-muted" : "bg-yellow-500/10 text-yellow-500"}`}>{inst.status}</span>
@@ -238,7 +237,7 @@ export default function WorkflowsPage() {
                 <span>Workflow: {inst.workflow_name}</span>
                 <span>Step: {inst.current_step}/{inst.steps_completed ?? "?"}</span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -249,13 +248,13 @@ export default function WorkflowsPage() {
             className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">{createWf.show ? "Cancel" : "+ Create Workflow"}</button>
           {createWf.show && (
             <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-              <input value={createWf.name} onChange={(e) => setCreateWf(c => ({...c, name: e.target.value}))}
+              <input aria-label="New workflow name" value={createWf.name} onChange={(e) => setCreateWf(c => ({...c, name: e.target.value}))}
                 placeholder="Workflow name" className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
-              <select value={createWf.wfType} onChange={(e) => setCreateWf(c => ({...c, wfType: e.target.value}))}
+              <select aria-label="Workflow category" value={createWf.wfType} onChange={(e) => setCreateWf(c => ({...c, wfType: e.target.value}))}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c.replace("_", " ")}</option>)}
               </select>
-              <textarea value={createWf.description} onChange={(e) => setCreateWf(c => ({...c, description: e.target.value}))}
+              <textarea aria-label="Workflow description" value={createWf.description} onChange={(e) => setCreateWf(c => ({...c, description: e.target.value}))}
                 placeholder="Description" className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm min-h-[60px]" />
               <button type="button" onClick={doCreate} disabled={!createWf.name.trim()}
                 className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium disabled:opacity-40">Create</button>
@@ -295,8 +294,7 @@ export default function WorkflowsPage() {
             loaded.workflows ? <p className="text-sm text-muted py-8 text-center">No workflows yet. Create one above or generate a blueprint.</p> : <ListSkeleton rows={3} />
           )}
           {ui.workflows.map((wf: any) => (
-            <div key={wf.id} onClick={() => loadWfDetail(wf.id)}
-              className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-accent/30 transition-colors">
+            <button type="button" className="w-full text-left bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors" onClick={() => loadWfDetail(wf.id)}>
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <span className="text-sm font-medium">{wf.name}</span>
@@ -309,7 +307,7 @@ export default function WorkflowsPage() {
                 <span>Steps: {wf.current_step}/{wf.total_steps}</span>
                 <span>Agents: {(wf.assigned_agents || []).join(", ")}</span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}

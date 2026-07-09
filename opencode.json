@@ -1,4 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "reticle": {
+      "type": "local",
+      "command": ["npx", "@reticlehq/core", "mcp"]
+    }
+  },
   "plugin": ["./.opencode/plugins/ponytail/.opencode/plugins/ponytail.mjs"]
 }

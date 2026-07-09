@@ -1,5 +1,5 @@
 from typing import Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from backend.core.database import SessionLocal
@@ -87,7 +87,7 @@ class ReleaseEngine:
             if not rc or rc.state != ReleaseState.APPROVED.value:
                 return None
             rc.state = ReleaseState.DEPLOYED.value
-            rc.deployed_at = datetime.utcnow()
+            rc.deployed_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(rc)
             return self._to_dict(rc)
@@ -101,7 +101,7 @@ class ReleaseEngine:
             if not rc:
                 return None
             rc.state = ReleaseState.ROLLED_BACK.value
-            rc.rollback_at = datetime.utcnow()
+            rc.rollback_at = datetime.now(timezone.utc)
             rc.rollback_reason = reason
             db.commit()
             db.refresh(rc)
