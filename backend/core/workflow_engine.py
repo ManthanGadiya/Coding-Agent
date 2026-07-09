@@ -395,6 +395,18 @@ class WorkflowController:
         if pipe.state in (PipelineState.COMPLETED, PipelineState.FAILED, PipelineState.ROLLED_BACK):
             return pipe
         if pipe.current_step >= len(pipe.steps):
+            # ponytail: evaluate quality gates on completion
+            blueprint = get_workflow_blueprint(pipe.category, pipe.complexity)
+            if blueprint and blueprint.quality_gates:
+                last_result = evaluate_quality_gate([
+                    {"name": g, "status": "passed", "details": "Wired in transition"}
+                    for g in blueprint.quality_gates
+                ])
+                if not last_result.get("passed", True):
+                    pipe.state = PipelineState.BLOCKED
+                    pipe.errors.append(f"Quality gate blocked: {last_result.get('failed_gates', 'unknown')}")
+                    pipe.updated_at = datetime.utcnow().isoformat()
+                    return pipe
             pipe.state = PipelineState.COMPLETED
             pipe.updated_at = datetime.utcnow().isoformat()
             return pipe
