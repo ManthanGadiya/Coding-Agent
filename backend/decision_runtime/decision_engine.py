@@ -264,6 +264,16 @@ class RuntimeEngine:
     def _step_memory(self, ctx: DecisionContext, request: DecisionRequest):
         for error in ctx.errors:
             memory_hooks.record_error(error, {"correlation_id": ctx.request.correlation_id})
+            try:
+                from backend.core.learning import LearningSystem
+                LearningSystem().record_failure(
+                    description=error, category="processing",
+                    severity="medium", impact="decision_pipeline",
+                    affected_components=["decision_engine"],
+                    root_cause=error, resolution="",
+                )
+            except Exception:
+                pass
         store_result = self._dispatch_agent("memory", "store", {
             "goal": request.task,
             "task_type": "store",
