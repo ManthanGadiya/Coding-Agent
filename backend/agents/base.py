@@ -8,7 +8,7 @@ from datetime import datetime
 
 from backend.core.model_router import get_model_router
 from backend.models.llm import LLMRequest
-from backend.tools import get_tool, ToolResult, TOOL_REGISTRY
+from backend.tools import get_tool, ToolResult
 from backend.core.safety import safety_controller
 
 

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage
 
 SYSTEM_PROMPT = """You are a senior technical planner. Given a goal or requirements,
