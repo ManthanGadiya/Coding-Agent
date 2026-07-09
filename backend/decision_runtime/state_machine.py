@@ -9,6 +9,7 @@ class RuntimeState(str, Enum):
     RECEIVED = "received"
     CLASSIFYING = "classifying"
     MEMORY_LOADING = "memory_loading"
+    CORE_DECISION = "core_decision"
     AGENT_SELECTION = "agent_selection"
     SKILL_SELECTION = "skill_selection"
     MCP_SELECTION = "mcp_selection"
@@ -35,7 +36,8 @@ class RuntimeState(str, Enum):
 TRANSITIONS: Dict[RuntimeState, List[RuntimeState]] = {
     RuntimeState.RECEIVED: [RuntimeState.CLASSIFYING],
     RuntimeState.CLASSIFYING: [RuntimeState.MEMORY_LOADING],
-    RuntimeState.MEMORY_LOADING: [RuntimeState.AGENT_SELECTION, RuntimeState.FAILED],
+    RuntimeState.MEMORY_LOADING: [RuntimeState.CORE_DECISION, RuntimeState.FAILED],
+    RuntimeState.CORE_DECISION: [RuntimeState.AGENT_SELECTION, RuntimeState.FAILED],
     RuntimeState.AGENT_SELECTION: [RuntimeState.SKILL_SELECTION],
     RuntimeState.SKILL_SELECTION: [RuntimeState.MCP_SELECTION],
     RuntimeState.MCP_SELECTION: [RuntimeState.MODEL_SELECTION],
