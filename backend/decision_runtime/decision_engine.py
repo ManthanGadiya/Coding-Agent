@@ -44,6 +44,7 @@ class DecisionContext:
     result: Optional[Dict[str, Any]] = None
     errors: List[str] = field(default_factory=list)
     start_time: str = ""
+    structured_decision: Optional[Dict[str, Any]] = None
 
 
 class RuntimeEngine:
@@ -83,6 +84,7 @@ class RuntimeEngine:
 
         self._exec_step(ctx, RuntimeState.CLASSIFYING, lambda: self._step_classify(ctx, request))
         self._exec_step(ctx, RuntimeState.MEMORY_LOADING, lambda: None)
+        self._exec_step(ctx, RuntimeState.CORE_DECISION, lambda: self._step_core_decision(ctx, request))
         self._exec_step(ctx, RuntimeState.AGENT_SELECTION, lambda: self._step_agents(ctx, request))
         self._exec_step(ctx, RuntimeState.SKILL_SELECTION, lambda: self._step_skills(ctx, request))
         self._exec_step(ctx, RuntimeState.MCP_SELECTION, lambda: self._step_mcps(ctx, request))
@@ -179,6 +181,27 @@ class RuntimeEngine:
                     "error": result.error}
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    def _step_core_decision(self, ctx: DecisionContext, request: DecisionRequest):
+        try:
+            from backend.core.decision_engine import DecisionEngine
+            core = DecisionEngine()
+            ctx.structured_decision = core.decide(
+                objective=request.task,
+                options=[{"name": "proceed", "description": "Execute with selected agents"}],
+                decision_type="technical",
+                constraints=[],
+                evidence=[str(request.context)],
+                risk_assessment={"level": ctx.classification.complexity if ctx.classification else "medium"},
+            )
+            decision_logger.info("engine.core_decision",
+                                 f"Structured decision: {ctx.structured_decision.get('recommendation', 'N/A')}",
+                                 source="decision_engine",
+                                 correlation_id=request.correlation_id)
+        except Exception as e:
+            decision_logger.warning("engine.core_decision_skipped", str(e),
+                                    source="decision_engine",
+                                    correlation_id=request.correlation_id)
 
     def _step_classify(self, ctx: DecisionContext, request: DecisionRequest):
         ctx.classification = task_classifier.classify(
@@ -295,6 +318,7 @@ class RuntimeEngine:
                 "complexity": ctx.classification.complexity,
                 "confidence": ctx.classification.confidence,
             },
+            "structured_decision": ctx.structured_decision,
             "agents": {
                 "primary": ctx.selected_agents.selected_agents,
                 "primary_agent": ctx.selected_agents.primary_agent,
@@ -377,6 +401,7 @@ class RuntimeEngine:
                 "mcps_selected": [m.name for m in ctx.selected_mcps],
                 "model": ctx.model_selection.primary.name if ctx.model_selection and ctx.model_selection.primary else None,
                 "approvals_pending": len(ctx.approvals),
+                "structured_decision": ctx.structured_decision.get("recommendation") if ctx.structured_decision else None,
             },
             "timestamp": datetime.utcnow().isoformat(),
         }
