@@ -103,6 +103,8 @@ class RuntimeEngine:
 
         result = self._build_final_result(ctx, request)
 
+        memory_hooks.record_decision(result)
+
         decision_trace.resolve(
             trace.decision_id,
             outcome=result["status"],
