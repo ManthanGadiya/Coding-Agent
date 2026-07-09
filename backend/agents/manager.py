@@ -254,6 +254,7 @@ class ManagerAgent(BaseAgent):
         self.autonomy.set_mode(AutonomyMode.AGENT)
 
     async def _autonomous_loop(self, poll_interval: int = 10):
+        cycle = 0
         while True:
             try:
                 db = SessionLocal()
@@ -277,11 +278,35 @@ class ManagerAgent(BaseAgent):
                     db2.close()
                 if not pending:
                     self.autonomy.revoke_expired_temporary_grants()
+                cycle += 1
+                if cycle % 60 == 0:
+                    self._consolidate_knowledge()
             except asyncio.CancelledError:
                 break
             except Exception:
                 pass
             await asyncio.sleep(poll_interval)
+
+    def _consolidate_knowledge(self):
+        from backend.core.knowledge import knowledge_engine
+        from backend.core.database import EngineSession
+        from backend.models.learning import KnowledgeArtifact, ArtifactStatus
+        db = EngineSession()
+        try:
+            artifacts = db.query(KnowledgeArtifact).filter(
+                KnowledgeArtifact.status == ArtifactStatus.KNOWLEDGE_ARTIFACT,
+                KnowledgeArtifact.reusable == True
+            ).all()
+            if artifacts:
+                knowledge_engine.promote_from_patterns([{
+                    "category": a.title or "auto",
+                    "entry_count": a.source_count or 1,
+                    "pattern": {"common_topics": a.tags or []}
+                } for a in artifacts])
+        except Exception:
+            pass
+        finally:
+            db.close()
 
     async def _execute_release(self, data: Dict) -> AgentResult:
         from backend.core.release import release_engine, ReleaseType
