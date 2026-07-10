@@ -6,8 +6,6 @@ import asyncio
 from backend.decision_runtime.event_bus import event_bus, Event, EventPriority
 from backend.decision_runtime.registries import workflow_registry, WorkflowDef, WorkflowStep
 from backend.decision_runtime.logger import decision_logger, LogLevel
-from backend.tools import TOOL_REGISTRY
-from backend.skills import get as get_skill
 
 
 class ExecutionStatus(str, Enum):
