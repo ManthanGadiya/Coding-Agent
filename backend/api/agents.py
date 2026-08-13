@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel
+import uuid
 
 from backend.core.database import get_db
 from backend.models.agent import Agent, AgentType, AgentStatus
@@ -125,7 +127,11 @@ def autonomous_status():
 def create_agent_endpoint(agent: AgentCreate, db: Session = Depends(get_db)):
     db_agent = Agent(**agent.model_dump())
     db.add(db_agent)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=f"Agent type '{agent.agent_type.value}' already exists")
     db.refresh(db_agent)
     return db_agent
 
@@ -190,7 +196,15 @@ async def execute_agent_task(agent_id: str, task_data: dict):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     from backend.agents.base import AgentTask
-    task = AgentTask(**task_data)
+    # Frontend posts {"task": "..."}; also accept full AgentTask fields.
+    task = AgentTask(
+        task_id=task_data.get("task_id") or str(uuid.uuid4()),
+        task_type=task_data.get("task_type") or "general",
+        description=task_data.get("task") or task_data.get("description", ""),
+        input_data=task_data.get("input_data", {}),
+        context=task_data.get("context", {}),
+        priority=task_data.get("priority", 5),
+    )
     result = await agent.execute_task(task)
     return {
         "success": result.success,
@@ -237,7 +251,7 @@ def conflict_history():
 
 
 @router.get("/communication/check")
-def check_communication_path(sender: str, receiver: str):
+def check_communication_path(sender: str = "", receiver: str = ""):
     mgr = get_manager()
     blocked = mgr.check_communication_path(sender, receiver)
     return {"allowed": blocked is None, "sender": sender,
@@ -285,7 +299,8 @@ def acknowledge_notification(req: AcknowledgeRequest):
 
 
 @router.post("/disagreement/{disagreement_id}/resolve")
-def resolve_disagreement(disagreement_id: str, resolution: str):
+def resolve_disagreement(disagreement_id: str, req: dict = None):
+    resolution = (req or {}).get("resolution", "")
     record = disagreement_engine.resolve(disagreement_id, resolution)
     if not record:
         raise HTTPException(404, "Disagreement record not found")

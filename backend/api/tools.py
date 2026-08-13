@@ -15,9 +15,11 @@ safety = SafetyManager()
 
 
 class ToolExecuteRequest(BaseModel):
-    tool: str
+    tool: Optional[str] = None
+    name: Optional[str] = None
     action: str = "execute"
     params: dict = {}
+    args: dict = {}
     agent_id: str = ""
     agent_role: str = ""
     session_id: str = ""
@@ -26,13 +28,14 @@ class ToolExecuteRequest(BaseModel):
 
 @router.post("/execute")
 async def execute_tool(req: ToolExecuteRequest):
-    tool = get_tool(req.tool)
+    tool = get_tool(req.tool or req.name)
     if not tool:
-        raise HTTPException(404, f"Tool '{req.tool}' not found")
+        raise HTTPException(404, f"Tool '{req.tool or req.name}' not found")
 
+    params = req.params or req.args
     result = await tool.safe_execute(
         agent_id=req.agent_id, agent_role=req.agent_role,
-        session_id=req.session_id, mode=req.mode, **req.params
+        session_id=req.session_id, mode=req.mode, **params
     )
     return {"success": result.success, "data": result.data,
             "error": result.error, "warnings": result.warnings,
@@ -57,13 +60,14 @@ async def execute_chain(req: ChainExecuteRequest):
 class ParallelExecuteRequest(BaseModel):
     tool: str
     items: list = []
+    params_list: list = []
     mode: str = "build"
 
 
 @router.post("/parallel")
 async def execute_parallel(req: ParallelExecuteRequest):
     from backend.tools import run_parallel
-    results = await run_parallel(req.tool, req.items, mode=req.mode)
+    results = await run_parallel(req.tool, req.items or req.params_list, mode=req.mode)
     return {"results": [{"success": r.success, "data": r.data,
                           "error": r.error} for r in results]}
 

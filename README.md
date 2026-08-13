@@ -11,7 +11,7 @@ CAMera is a governance-driven multi-agent software engineering system — a coor
 Active development. Backend + frontend working.
 
 ### Backend (FastAPI, port 8000)
-- **149 API routes** across projects, tasks, agents, memory, workflows, LLM, decisions, learning, autonomy, tools
+- **177 API routes** across projects, tasks, agents, memory, workflows, LLM, decisions, learning, autonomy, tools
 - **8 agents**: Manager (coordinator), Architect, Planner, Coder, Reviewer, Tester, Debugger, Memory — all wired to **ModelRouter** for real LLM output (not stubs)
 - **CoderAgent._implement()** writes files to disk from LLM output (parses fenced code blocks with paths)
 - **SafetyController** wired into BaseAgent.execute_task() — blocks dangerous ops pre-execution
@@ -27,7 +27,7 @@ Active development. Backend + frontend working.
 - **Autonomy System**: 3 modes, 35+ capability risk levels, 4-tier approval classes
 - **Weighted Memory Retrieval**: 7-factor scoring, 8 agent profiles, 9 retrieval modes
 - **TypeScript interfaces**: All backend API responses typed in frontend (replaced all `any`)
-- **Memory auto-retention**: Retention+compression hooks auto-trigger on memory writes when count > 200
+- **Memory retention health check**: Runs on memory writes when active count > 200; compression is manual via `POST /api/v1/memory/compress`
 - **Database**: SQLAlchemy + SQLite, auto-seeded at startup
 - **Release Engine**: DB-backed ReleaseCandidate model, 4 check gates, 4 rollback strategies
 

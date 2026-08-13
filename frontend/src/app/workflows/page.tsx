@@ -5,6 +5,7 @@ import { ListSkeleton, CardSkeleton } from "@/components/ui";
 
 const CATEGORIES = ["sdlc", "feature", "bug_fix", "refactor", "release", "task_pipeline"];
 const COMPLEXITIES = ["simple", "moderate", "complex", "critical"];
+const WORKFLOW_TYPES = ["simple", "moderate", "complex", "critical", "feature_development", "bug_fixing", "release", "refactoring"];
 
 export default function WorkflowsPage() {
   const [ui, setUi] = useState<{tab: "blueprint" | "list" | "executor"; cat: string; complexity: string; blueprint: any; workflows: any[]}>({tab: "blueprint", cat: "feature", complexity: "moderate", blueprint: null, workflows: []});
@@ -12,7 +13,7 @@ export default function WorkflowsPage() {
   const [execInstances, setExecInstances] = useState<any[]>([]);
   const [selectedInst, setSelectedInst] = useState<any>(null);
   const [categories, setCategories] = useState<string[]>([]);
-  const [createWf, setCreateWf] = useState<{show: boolean; name: string; wfType: string; description: string}>({show: false, name: "", wfType: "feature", description: ""});
+  const [createWf, setCreateWf] = useState<{show: boolean; name: string; wfType: string; description: string; error: string}>({show: false, name: "", wfType: "feature_development", description: "", error: ""});
   const [qualityGate, setQualityGate] = useState<{checks: string[]; input: string; result: any}>({checks: [], input: "", result: null});
   const [selectedWf, setSelectedWf] = useState<any>(null);
   const [loaded, setLoaded] = useState({workflows: false, exec: false, categories: false});
@@ -37,9 +38,14 @@ export default function WorkflowsPage() {
 
   async function doCreate() {
     if (!createWf.name.trim()) return;
-    await api.workflows.create({ name: createWf.name.trim(), workflow_type: createWf.wfType, description: createWf.description.trim() });
-    setCreateWf({ show: false, name: "", wfType: "feature", description: "" });
-    api.workflows.list().then((d) => setUi(p => ({...p, workflows: d}))).catch(() => {});
+    setCreateWf(c => ({...c, error: ""}));
+    try {
+      await api.workflows.create({ name: createWf.name.trim(), workflow_type: createWf.wfType, description: createWf.description.trim() });
+      setCreateWf({ show: false, name: "", wfType: "feature_development", description: "", error: "" });
+      api.workflows.list().then((d) => setUi(p => ({...p, workflows: d}))).catch(() => {});
+    } catch (e) {
+      setCreateWf(c => ({...c, error: e instanceof Error ? e.message : "Failed to create workflow"}));
+    }
   }
 
   function addGateCheck() {
@@ -250,14 +256,15 @@ export default function WorkflowsPage() {
             <div className="bg-card border border-border rounded-xl p-5 space-y-3">
               <input aria-label="New workflow name" value={createWf.name} onChange={(e) => setCreateWf(c => ({...c, name: e.target.value}))}
                 placeholder="Workflow name" className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
-              <select aria-label="Workflow category" value={createWf.wfType} onChange={(e) => setCreateWf(c => ({...c, wfType: e.target.value}))}
+              <select aria-label="Workflow type" value={createWf.wfType} onChange={(e) => setCreateWf(c => ({...c, wfType: e.target.value}))}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c.replace("_", " ")}</option>)}
+                {WORKFLOW_TYPES.map((c) => <option key={c} value={c}>{c.replace("_", " ")}</option>)}
               </select>
               <textarea aria-label="Workflow description" value={createWf.description} onChange={(e) => setCreateWf(c => ({...c, description: e.target.value}))}
                 placeholder="Description" className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm min-h-[60px]" />
               <button type="button" onClick={doCreate} disabled={!createWf.name.trim()}
                 className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium disabled:opacity-40">Create</button>
+              {createWf.error && <div className="text-xs text-error">{createWf.error}</div>}
             </div>
           )}
           {selectedWf && (

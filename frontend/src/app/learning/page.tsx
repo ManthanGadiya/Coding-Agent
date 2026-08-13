@@ -6,7 +6,7 @@ import { ListSkeleton } from "@/components/ui";
 export default function LearningPage() {
   const [data, setData] = useState<{tab: "failures" | "lessons" | "metrics" | "proposals" | "knowledge" | "rules"; failures: any[]; lessons: any[]; metrics: any[]; proposals: any[]; artifacts: any[]; pendingRules: any[]; approvedRules: any[]}>({tab: "failures", failures: [], lessons: [], metrics: [], proposals: [], artifacts: [], pendingRules: [], approvedRules: []});
   const [why, setWhy] = useState<{whys: any[] | null; input: string}>({whys: null, input: ""});
-  const [createLesson, setCreateLesson] = useState<{show: boolean; topic: string; description: string; scope: string}>({show: false, topic: "", description: "", scope: "local"});
+  const [createLesson, setCreateLesson] = useState<{show: boolean; topic: string; description: string; scope: string}>({show: false, topic: "", description: "", scope: "project"});
   const [proposalReview, setProposalReview] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
 
@@ -21,9 +21,9 @@ export default function LearningPage() {
 
   useEffect(() => {
     if (data.tab === "knowledge" || data.tab === "rules") {
-      api.learning.artifacts().then((d: any) => setData(p => ({...p, artifacts: Array.isArray(d) ? d : []}))).catch(() => {});
-      api.learning.rulesPending().then((d: any) => setData(p => ({...p, pendingRules: Array.isArray(d) ? d : []}))).catch(() => {});
-      api.learning.rulesApproved().then((d: any) => setData(p => ({...p, approvedRules: Array.isArray(d) ? d : []}))).catch(() => {});
+      api.learning.artifacts().then((d: any) => setData(p => ({...p, artifacts: Array.isArray(d) ? d : d.artifacts ?? []}))).catch(() => {});
+      api.learning.rulesPending().then((d: any) => setData(p => ({...p, pendingRules: Array.isArray(d) ? d : d.rules ?? []}))).catch(() => {});
+      api.learning.rulesApproved().then((d: any) => setData(p => ({...p, approvedRules: Array.isArray(d) ? d : d.rules ?? []}))).catch(() => {});
     }
   }, [data.tab]);
 
@@ -38,22 +38,22 @@ export default function LearningPage() {
 
   function reviewProposal(id: string) {
     const note = proposalReview[id] || "";
-    api.learning.reviewProposal(id, { reviewed_by: "user", notes: note }).then(() => {
+    api.learning.reviewProposal(id, { decision: "approved", notes: note }).then(() => {
       api.learning.proposals().then((d: any) => setData(p => ({...p, proposals: Array.isArray(d) ? d : []}))).catch(() => {});
     }).catch(() => {});
   }
 
   function reviewRule(id: string, approved: boolean) {
     api.learning.reviewRule(id, approved).then(() => {
-      api.learning.rulesPending().then((d: any) => setData(p => ({...p, pendingRules: Array.isArray(d) ? d : []}))).catch(() => {});
-      api.learning.rulesApproved().then((d: any) => setData(p => ({...p, approvedRules: Array.isArray(d) ? d : []}))).catch(() => {});
+      api.learning.rulesPending().then((d: any) => setData(p => ({...p, pendingRules: Array.isArray(d) ? d : d.rules ?? []}))).catch(() => {});
+      api.learning.rulesApproved().then((d: any) => setData(p => ({...p, approvedRules: Array.isArray(d) ? d : d.rules ?? []}))).catch(() => {});
     }).catch(() => {});
   }
 
   function doCreateLesson() {
     if (!createLesson.topic.trim() || !createLesson.description.trim()) return;
-    api.learning.createLesson({ topic: createLesson.topic.trim(), description: createLesson.description.trim(), scope: createLesson.scope }).then(() => {
-      setCreateLesson({ show: false, topic: "", description: "", scope: "local" });
+    api.learning.createLesson({ topic: createLesson.topic.trim(), description: createLesson.description.trim(), scope: createLesson.scope, evidence: [] }).then(() => {
+      setCreateLesson({ show: false, topic: "", description: "", scope: "project" });
       api.learning.lessons("status=active").then((d: any) => setData(p => ({...p, lessons: Array.isArray(d) ? d : []}))).catch(() => {});
     }).catch(() => {});
   }
@@ -94,9 +94,9 @@ export default function LearningPage() {
           {!loaded ? <ListSkeleton rows={3} /> : data.failures.length === 0 ? (
             <p className="text-sm text-muted py-8 text-center">No failures recorded. Failures are logged automatically during task execution.</p>
           ) : data.failures.map((f: any) => (
-            <div key={f.failure_id} className="bg-card border border-border rounded-xl p-4">
+            <div key={f.id ?? f.failure_id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono text-muted">{f.failure_id}</span>
+                <span className="text-xs font-mono text-muted">{f.id ?? f.failure_id}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-mono ${f.severity === "critical" ? "bg-red-500/10 text-red-500" : f.severity === "high" ? "bg-orange-500/10 text-orange-500" : "bg-yellow-500/10 text-yellow-500"}`}>{f.severity}</span>
               </div>
               <p className="text-sm font-medium">{f.description}</p>
@@ -123,7 +123,7 @@ export default function LearningPage() {
                 placeholder="Description" className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm min-h-[60px]" />
               <select aria-label="Lesson scope" value={createLesson.scope} onChange={(e) => setCreateLesson(c => ({...c, scope: e.target.value}))}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
-                {["local", "project", "global"].map(s => <option key={s} value={s}>{s}</option>)}
+                {["project", "project_type", "global"].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <button type="button" onClick={doCreateLesson} disabled={!createLesson.topic.trim() || !createLesson.description.trim()}
                 className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium disabled:opacity-40">Create Lesson</button>

@@ -26,8 +26,6 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
 
-    
-
 
 @lru_cache()
 def get_settings() -> Settings:

@@ -72,6 +72,8 @@ class TaskLogResponse(BaseModel):
     level: str
     created_at: datetime
 
+    model_config = {"from_attributes": True}
+
 
 @router.post("", response_model=TaskResponse, status_code=201)
 def create_task(task: TaskCreate, db: Session = Depends(get_db)):
@@ -155,7 +157,14 @@ def get_task_logs(task_id: str, db: Session = Depends(get_db)):
 
 @router.post("/{task_id}/logs", response_model=TaskLogResponse, status_code=201)
 def add_task_log(task_id: str, log: dict, db: Session = Depends(get_db)):
-    db_log = TaskLog(task_id=task_id, **log)
+    # Frontend posts {"entry": "..."}; map to the TaskLog columns.
+    db_log = TaskLog(
+        task_id=task_id,
+        agent=log.get("agent") or "",
+        action=log.get("action") or "log",
+        message=log.get("entry") or log.get("message") or "",
+        level=log.get("level") or "info",
+    )
     db.add(db_log)
     db.commit()
     db.refresh(db_log)

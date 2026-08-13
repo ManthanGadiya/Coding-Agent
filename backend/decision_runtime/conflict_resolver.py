@@ -50,14 +50,18 @@ CONFLICT_PATHS: Dict[Tuple[str, str], str] = {
 
 
 class ConflictResolver:
+    _MAX_RECORDS = 1000  # ponytail: bounded history, no caching layer
+
     def __init__(self):
         self._records: List[ConflictRecord] = []
+        self._seq = 0
 
     def resolve(self, agents: List[str], issue: str, arguments: Dict[str, str],
                  evidence: Optional[Dict[str, List[str]]] = None,
                  severity: str = "medium") -> Dict[str, Any]:
+        self._seq += 1
         record = ConflictRecord(
-            conflict_id=f"cf-{len(self._records) + 1}",
+            conflict_id=f"cf-{self._seq}",
             issue=issue,
             agents_involved=agents,
             severity=ConflictSeverity(severity),
@@ -90,6 +94,8 @@ class ConflictResolver:
 
         record.resolved_at = datetime.utcnow().isoformat()
         self._records.append(record)
+        if len(self._records) > self._MAX_RECORDS:
+            del self._records[:-self._MAX_RECORDS]
 
         event_bus.publish(Event(
             topic="conflict.resolved",
@@ -118,11 +124,14 @@ class ConflictResolver:
 
     def _score_arguments(self, agents: List[str], arguments: Dict[str, str],
                           evidence: Dict[str, List[str]]) -> Dict[str, float]:
+        # ponytail: normalize by the max arg length across participants so long
+        # outputs don't all saturate to 1.0 (arbitration becomes unreachable).
+        max_len = max((len(arguments.get(a, "")) for a in agents), default=0)
         scores = {}
         for agent in agents:
             arg = arguments.get(agent, "")
             ev = evidence.get(agent, [])
-            arg_score = min(len(arg) / 300, 1.0)
+            arg_score = (len(arg) / max_len) if max_len else 1.0
             ev_score = min(len(ev) * 0.25, 1.0)
             scores[agent] = round(arg_score * 0.4 + ev_score * 0.6, 3)
         return scores

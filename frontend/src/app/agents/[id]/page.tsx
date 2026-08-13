@@ -19,7 +19,7 @@ export default function AgentDetail({ params }: { params: Promise<{ id: string }
     Promise.all([
       api.agents.get(id).catch(() => null),
       api.agents.status(id).catch(() => null),
-      api.memoryRetrieval.profile(id.replace("-1", "")).catch(() => null),
+      api.memoryRetrieval.profile(id.replace("-1", "")).then((p: any) => p?.profile ?? null).catch(() => null),
       api.tasks.list(`assigned_agent=${id}`).then((d: any) => Array.isArray(d) ? d : d.tasks ?? []).catch(() => []),
     ]).then(([a, r, p, t]) => {
       setData({ agent: a, runtime: r, profile: p, tasks: t, loading: false });

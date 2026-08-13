@@ -23,15 +23,19 @@ class TraceRecord:
 
 
 class DecisionTrace:
+    _MAX_TRACES = 1000  # ponytail: bounded history, no caching layer
+
     def __init__(self):
         self._traces: List[TraceRecord] = []
+        self._seq = 0
 
     def record(self, task: str, reason: str, evidence: Optional[List[str]] = None,
                confidence: str = "medium", owner: str = "runtime",
                impact: Optional[Dict] = None, source: str = "decision_engine",
                correlation_id: Optional[str] = None) -> TraceRecord:
+        self._seq += 1
         trace = TraceRecord(
-            decision_id=f"tr-{len(self._traces) + 1}",
+            decision_id=f"tr-{self._seq}",
             task=task,
             reason=reason,
             evidence=evidence or [],
@@ -43,6 +47,8 @@ class DecisionTrace:
             correlation_id=correlation_id,
         )
         self._traces.append(trace)
+        if len(self._traces) > self._MAX_TRACES:
+            del self._traces[:-self._MAX_TRACES]
 
         event_bus.publish(Event(
             topic="trace.recorded",

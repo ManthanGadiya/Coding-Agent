@@ -13,8 +13,9 @@ class SetModeRequest(BaseModel):
 
 class CheckActionRequest(BaseModel):
     action: str
-    role: str
-    session_id: str
+    role: str = "coder"
+    session_id: str = ""
+    resource: str = ""
     project_id: Optional[str] = ""
     confidence: str = "medium"
 
@@ -22,14 +23,22 @@ class CheckActionRequest(BaseModel):
 class GrantRequest(BaseModel):
     session_id: Optional[str] = None
     project_id: Optional[str] = None
-    capabilities: list[str]
+    capability: Optional[str] = None
+    capabilities: Optional[list[str]] = None
+
+    def resolved_capabilities(self) -> list[str]:
+        if self.capabilities:
+            return self.capabilities
+        if self.capability:
+            return [self.capability]
+        return []
 
 
 class TempCapabilityRequest(BaseModel):
     capability: str
-    agent_id: str
-    task_id: str
-    reason: str
+    agent_id: str = "frontend"
+    task_id: str = "adhoc"
+    reason: str = ""
     duration_minutes: int = 60
 
 
@@ -88,12 +97,12 @@ def get_capability_registry():
 
 @router.post("/grant/session")
 def grant_session(req: GrantRequest):
-    return controller.approvals.grant_session(req.session_id, req.capabilities)
+    return controller.approvals.grant_session(req.session_id, req.resolved_capabilities())
 
 
 @router.post("/grant/project")
 def grant_project(req: GrantRequest):
-    return controller.approvals.grant_project(req.project_id, req.capabilities)
+    return controller.approvals.grant_project(req.project_id, req.resolved_capabilities())
 
 
 @router.post("/revoke/session/{session_id}")

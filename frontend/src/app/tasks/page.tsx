@@ -6,32 +6,39 @@ import { api, TaskResponse } from "@/lib/api";
 const badge = (s: string) => {
   const m: Record<string, string> = {
     pending: "bg-muted/10 text-muted",
-    in_progress: "bg-accent/10 text-accent",
+    planned: "bg-muted/10 text-muted",
+    implementing: "bg-accent/10 text-accent",
+    testing: "bg-accent/10 text-accent",
+    reviewing: "bg-accent/10 text-accent",
     completed: "bg-success/10 text-success",
-    failed: "bg-error/10 text-error",
-    cancelled: "bg-muted/10 text-muted",
     blocked: "bg-error/10 text-error",
+    cancelled: "bg-muted/10 text-muted",
   };
   return m[s] || "bg-muted/10 text-muted";
 };
 
 const typeBadge = (t: string) => {
   const m: Record<string, string> = {
-    feature: "text-blue-400",
-    bugfix: "text-error",
-    refactor: "text-purple-400",
     research: "text-cyan-400",
+    architecture: "text-purple-400",
     implementation: "text-accent",
+    debugging: "text-error",
     testing: "text-green-400",
     review: "text-pink-400",
-    documentation: "text-muted",
+    teaching: "text-muted",
+    optimization: "text-blue-400",
+    maintenance: "text-muted",
+    multi_stage: "text-yellow-400",
   };
   return m[t] || "text-muted";
 };
 
+const TASK_TYPES = ["research", "architecture", "implementation", "debugging", "testing", "review", "teaching", "optimization", "maintenance", "multi_stage"];
+
 export default function Tasks() {
   const [data, setData] = useState<{ tasks: TaskResponse[]; loading: boolean; filter: string }>({ tasks: [], loading: true, filter: "" });
-  const [create, setCreate] = useState({ show: false, title: "", desc: "", type: "feature" });
+  const [create, setCreate] = useState({ show: false, title: "", desc: "", type: "implementation" });
+  const [error, setError] = useState("");
 
   const loadTasks = useCallback(async (filterValue?: string) => {
     setData(d => ({...d, loading: true}));
@@ -56,9 +63,14 @@ export default function Tasks() {
 
   async function createTask() {
     if (!create.title.trim()) return;
-    await api.tasks.create({ title: create.title.trim(), description: create.desc || undefined, task_type: create.type });
-    setCreate(c => ({...c, title: "", desc: "", show: false}));
-    loadTasks();
+    setError("");
+    try {
+      await api.tasks.create({ title: create.title.trim(), description: create.desc || undefined, task_type: create.type });
+      setCreate(c => ({...c, title: "", desc: "", show: false}));
+      loadTasks();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create task");
+    }
   }
 
   return (
@@ -81,7 +93,7 @@ export default function Tasks() {
           <div className="flex gap-2 items-center">
             <select aria-label="Task type" className="bg-surface border border-border rounded-lg px-3 py-2 text-sm outline-none"
               value={create.type} onChange={(e) => setCreate(c => ({...c, type: e.target.value}))}>
-              {["feature", "bugfix", "refactor", "research", "implementation", "testing", "review", "documentation"].map(t =>
+              {TASK_TYPES.map(t =>
                 <option key={t} value={t}>{t}</option>
               )}
             </select>
@@ -90,11 +102,12 @@ export default function Tasks() {
               Create
             </button>
           </div>
+          {error && <div className="text-xs text-error">{error}</div>}
         </div>
       )}
 
       <div className="flex gap-2 flex-wrap">
-        {["", "pending", "in_progress", "completed", "failed"].map((s) => (
+        {["", "pending", "planned", "implementing", "testing", "reviewing", "completed", "blocked"].map((s) => (
           <button key={s} type="button" onClick={() => { setData(d => ({...d, filter: s})); loadTasks(s); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
               data.filter === s ? "bg-accent text-black" : "bg-card border border-border text-muted hover:text-foreground"
