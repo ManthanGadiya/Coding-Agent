@@ -367,6 +367,8 @@ Review when:
 
 Memory Age Threshold Reached
 
+Active Memory Count Exceeds 200
+
 Confidence Changes
 
 Knowledge Artifact Created
