@@ -4,7 +4,7 @@ from enum import Enum
 from dataclasses import dataclass, field
 import asyncio
 
-from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage, AgentState
+from backend.agents.base import BaseAgent, AgentTask, AgentResult, AgentMessage
 from backend.core.workflow_engine import ComplexityLevel, workflow_controller
 from backend.core.learning import LearningSystem
 from backend.core.autonomy import AutonomyMode, AutonomyController

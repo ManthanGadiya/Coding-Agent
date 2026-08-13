@@ -31,7 +31,6 @@ export const api = {
     runGoal: (goal: string, context?: Record<string, unknown>) =>
       fetchJSON<unknown>("/api/v1/agents/run-goal", { method: "POST", body: JSON.stringify({ goal, context }) }),
     registry: () => fetchJSON<unknown[]>("/api/v1/agents/registry/list"),
-    listAll: (params?: string) => fetchJSON<unknown[]>(`/api/v1/agents${params ? `?${params}` : ""}`),
     create: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/agents", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/agents/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: string) => fetchJSON<unknown>(`/api/v1/agents/${id}`, { method: "DELETE" }),
@@ -83,13 +82,9 @@ export const api = {
     metrics: () => fetchJSON<unknown[]>("/api/v1/learning/metrics"),
     proposals: () => fetchJSON<unknown[]>("/api/v1/learning/proposals"),
     fiveWhys: (problem: string) => fetchJSON<unknown>("/api/v1/learning/five-whys", { method: "POST", body: JSON.stringify({ problem }) }),
-    createFailure: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/learning/failures", { method: "POST", body: JSON.stringify(data) }),
     createLesson: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/learning/lessons", { method: "POST", body: JSON.stringify(data) }),
     supersedeLesson: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/learning/lessons/${id}/supersede`, { method: "POST", body: JSON.stringify(data) }),
     promoteLesson: (id: string, scope: string) => fetchJSON<unknown>(`/api/v1/learning/lessons/${id}/promote`, { method: "POST", body: JSON.stringify({ scope }) }),
-    recordMetrics: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/learning/metrics", { method: "POST", body: JSON.stringify(data) }),
-    scoreMetrics: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/learning/metrics/score", { method: "POST", body: JSON.stringify(data) }),
-    createProposal: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/learning/proposals", { method: "POST", body: JSON.stringify(data) }),
     reviewProposal: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/learning/proposals/${id}/review`, { method: "POST", body: JSON.stringify(data) }),
     observe: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/learning/knowledge/observe", { method: "POST", body: JSON.stringify(data) }),
     promoteKnowledge: () => fetchJSON<unknown>("/api/v1/learning/knowledge/promote", { method: "POST" }),
@@ -103,8 +98,6 @@ export const api = {
     retrieve: (data: Record<string, unknown>) => fetchJSON<unknown[]>("/api/v1/memory-retrieval/retrieve", { method: "POST", body: JSON.stringify(data) }),
     profiles: () => fetchJSON<Record<string, unknown>>("/api/v1/memory-retrieval/profiles"),
     profile: (agent: string) => fetchJSON<Record<string, unknown>>(`/api/v1/memory-retrieval/profile/${agent}`),
-    store: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/memory-retrieval/store", { method: "POST", body: JSON.stringify(data) }),
-    expand: (entryId: string) => fetchJSON<unknown>("/api/v1/memory-retrieval/expand", { method: "POST", body: JSON.stringify({ entry_id: entryId }) }),
   },
 
   executor: {
@@ -238,7 +231,6 @@ export const api = {
     list: (params?: string) => fetchJSON<TaskResponse[]>(`/api/v1/tasks${params ? `?${params}` : ""}`),
     create: (data: { title: string; description?: string; task_type?: string }) => fetchJSON<TaskResponse>("/api/v1/tasks", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: TaskUpdate) => fetchJSON<TaskResponse>(`/api/v1/tasks/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    get: (id: string) => fetchJSON<TaskResponse>(`/api/v1/tasks/${id}`),
     delete: (id: string) => fetchJSON<unknown>(`/api/v1/tasks/${id}`, { method: "DELETE" }),
     logs: (id: string) => fetchJSON<unknown[]>(`/api/v1/tasks/${id}/logs`),
     addLog: (id: string, entry: string) => fetchJSON<unknown>(`/api/v1/tasks/${id}/logs`, { method: "POST", body: JSON.stringify({ entry }) }),
