@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from backend.core.learning import LearningSystem, FailureRecordModel
@@ -61,12 +61,15 @@ class FiveWhysRequest(BaseModel):
 
 @router.post("/failures")
 def create_failure(req: FailureRequest):
-    return system.record_failure(
-        description=req.description, category=req.category, severity=req.severity,
-        impact=req.impact, affected_components=req.affected_components,
-        root_cause=req.root_cause, root_cause_confidence=req.root_cause_confidence,
-        resolution=req.resolution, preventive_actions=req.preventive_actions,
-    )
+    try:
+        return system.record_failure(
+            description=req.description, category=req.category, severity=req.severity,
+            impact=req.impact, affected_components=req.affected_components,
+            root_cause=req.root_cause, root_cause_confidence=req.root_cause_confidence,
+            resolution=req.resolution, preventive_actions=req.preventive_actions,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/failures")
@@ -86,11 +89,14 @@ def list_failures(limit: int = 20):
 
 @router.post("/lessons")
 def create_lesson(req: LessonCreate):
-    return system.create_lesson(
-        topic=req.topic, description=req.description, evidence=req.evidence,
-        confidence=req.confidence, scope=req.scope,
-        supporting_projects=req.supporting_projects, author=req.author,
-    )
+    try:
+        return system.create_lesson(
+            topic=req.topic, description=req.description, evidence=req.evidence,
+            confidence=req.confidence, scope=req.scope,
+            supporting_projects=req.supporting_projects, author=req.author,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/lessons")
@@ -98,17 +104,25 @@ def search_lessons(
     query: str = "", scope: Optional[str] = None, status: Optional[str] = None,
     confidence: Optional[str] = None, limit: int = 10,
 ):
-    return system.search_lessons(query, scope, status, confidence, limit)
+    try:
+        return system.search_lessons(query, scope, status, confidence, limit)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/lessons/{lesson_id}/supersede")
-def supersede_lesson(lesson_id: str, new_id: str = Query(..., description="New lesson ID")):
+def supersede_lesson(lesson_id: str, req: dict = None):
+    new_id = (req or {}).get("new_id", "")
     return system.supersede_lesson(lesson_id, new_id)
 
 
 @router.post("/lessons/{lesson_id}/promote")
-def promote_lesson(lesson_id: str, scope: str = Query(..., description="New scope")):
-    return system.promote_lesson(lesson_id, scope)
+def promote_lesson(lesson_id: str, req: dict = None):
+    scope = (req or {}).get("scope", "")
+    try:
+        return system.promote_lesson(lesson_id, scope)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/metrics")

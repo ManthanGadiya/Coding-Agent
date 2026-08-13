@@ -125,8 +125,13 @@ class BaseAgent(ABC):
                 req.context["model_latency_ms"] = selection.estimated_latency_ms
         except Exception:
             pass  # runtime router unavailable -> core router default behavior (backward compatible)
-        resp = await get_model_router().generate(req)
-        return resp.content
+        try:
+            resp = await get_model_router().generate(req)
+            if not resp.content:
+                return "LLM generate returned an empty response"
+            return resp.content
+        except Exception as e:
+            return f"LLM generate failed: {e}"
 
     def _runtime_classification(self, prompt: str, task_classifier, TaskType, ClassificationResult) -> ClassificationResult:
         """Pick a TaskType for the runtime router: current task type -> agent role -> prompt classification."""
@@ -196,7 +201,8 @@ class BaseAgent(ABC):
         blocked = await self._safety_check(task)
         if blocked:
             self._task_history.append(blocked)
-            self.state = AgentState.ERROR
+            self.state = AgentState.IDLE
+            self.current_task = None
             return blocked
         try:
             result = await self.process_task(task)
@@ -214,6 +220,7 @@ class BaseAgent(ABC):
             self.state = AgentState.ERROR
             return result
         finally:
+            self.state = AgentState.IDLE
             self.current_task = None
 
     def get_status(self) -> Dict[str, Any]:

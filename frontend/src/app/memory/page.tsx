@@ -10,7 +10,7 @@ const categoryColor: Record<string, string> = {
 
 export default function MemoryPage() {
   const [data, setData] = useState({ entries: [] as any[], loading: true, filter: "", searchQ: "" });
-  const [create, setCreate] = useState({ show: false, title: "", content: "", category: "general" });
+  const [create, setCreate] = useState({ show: false, title: "", content: "", category: "knowledge" });
   const [tab, setTab] = useState<"entries" | "retention" | "compress">("entries");
   const [retention, setRetention] = useState<any>(null);
   const [stale, setStale] = useState<any[]>([]);
@@ -37,8 +37,8 @@ export default function MemoryPage() {
   useEffect(() => {
     if (tab === "retention") {
       api.memory.retentionHealth().then(setRetention).catch(() => {});
-      api.memory.stale().then((d: any) => setStale(Array.isArray(d) ? d : [])).catch(() => {});
-      api.memory.archivalCandidates().then((d: any) => setArchival(Array.isArray(d) ? d : [])).catch(() => {});
+      api.memory.stale().then((d: any) => setStale(Array.isArray(d) ? d : d.stale ?? [])).catch(() => {});
+      api.memory.archivalCandidates().then((d: any) => setArchival(Array.isArray(d) ? d : d.candidates ?? [])).catch(() => {});
     }
   }, [tab]);
 
@@ -66,7 +66,7 @@ export default function MemoryPage() {
   }
 
   async function loadVersions(id: string) {
-    api.memory.versions(id).then(setVersions).catch(() => {});
+    api.memory.versions(id).then((d: any) => setVersions(Array.isArray(d) ? d : d.versions ?? [])).catch(() => {});
   }
 
   return (
@@ -102,7 +102,7 @@ export default function MemoryPage() {
               <div className="flex gap-2 items-center">
                 <select aria-label="Category" className="bg-surface border border-border rounded-lg px-3 py-2 text-sm outline-none"
                   value={create.category} onChange={(e) => setCreate(c => ({...c, category: e.target.value}))}>
-                  {["general", "architecture", "decision", "lesson", "bug", "preference", "pattern", "insight"].map(c =>
+                  {["knowledge", "architecture", "decision", "lesson", "bug", "preference", "research", "improvement"].map(c =>
                     <option key={c} value={c}>{c}</option>)}
                 </select>
                 <button type="button" onClick={createEntry} disabled={!create.title.trim() || !create.content.trim()}
@@ -113,7 +113,7 @@ export default function MemoryPage() {
 
           <div className="flex gap-3">
             <div className="flex gap-2 flex-wrap flex-1">
-              {["", "general", "architecture", "decision", "lesson", "bug", "preference"].map((c) => (
+              {["", "knowledge", "architecture", "decision", "lesson", "bug", "preference"].map((c) => (
                 <button key={c} type="button" onClick={() => { setData(d => ({...d, filter: c, searchQ: ""})); loadEntries(c); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${data.filter === c ? "bg-accent text-black" : "bg-card border border-border text-muted hover:text-foreground"}`}>{c || "all"}</button>
               ))}
@@ -235,7 +235,7 @@ export default function MemoryPage() {
           <div className="bg-card border border-border rounded-xl p-5 space-y-4">
             <h2 className="text-sm font-semibold">Compression</h2>
             <div className="flex gap-2">
-              <button type="button" onClick={() => api.memory.compress().then(setCompressResult).catch(() => {})}
+              <button type="button" onClick={() => { const ids = data.entries.map((e: any) => e.id); if (ids.length) api.memory.compress(ids).then(setCompressResult).catch(() => {}); }}
                 className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">Run Compression</button>
               <button type="button" onClick={() => api.memory.suggestCompress().then(setCompressResult).catch(() => {})}
                 className="px-4 py-2 bg-surface border border-border rounded-lg text-sm">Suggest</button>

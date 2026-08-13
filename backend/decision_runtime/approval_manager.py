@@ -89,7 +89,7 @@ class ApprovalManager:
         return risk_rank.get(risk, 0) >= 1 or risk_rank.get(action_risk, 0) >= 2
 
     def check_task_approvals(self, task_type: TaskType, complexity: str) -> List[ApprovalScope]:
-        scopes = APPROVAL_BY_TASK.get(task_type, [])
+        scopes = list(APPROVAL_BY_TASK.get(task_type, []))
         if complexity in ("complex", "critical"):
             scopes.append(ApprovalScope.HIGH_RISK_ACTION)
         return list(set(scopes))

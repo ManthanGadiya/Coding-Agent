@@ -9,25 +9,25 @@ export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [user, setUser] = useState<any>(null);
   const [goals, setGoals] = useState<any[]>([]);
-  const [goalForm, setGoalForm] = useState<{ show: boolean; goal: string; priority: string }>({ show: false, goal: "", priority: "medium" });
+  const [goalForm, setGoalForm] = useState<{ show: boolean; goal: string }>({ show: false, goal: "" });
 
   useEffect(() => {
     if (!id) return;
     api.users.get(id).then(setUser).catch(() => {});
-    api.users.goals(id).then(setGoals).catch(() => {});
+    api.users.goals(id).then((d: any) => setGoals(Array.isArray(d) ? d : d.goals ?? [])).catch(() => {});
   }, [id]);
 
   function createGoal() {
     if (!goalForm.goal.trim()) return;
-    api.users.createGoal(id, { goal: goalForm.goal.trim(), priority: goalForm.priority }).then(() => {
-      setGoalForm({ show: false, goal: "", priority: "medium" });
-      api.users.goals(id).then(setGoals).catch(() => {});
+    api.users.createGoal(id, { title: goalForm.goal.trim() }).then(() => {
+      setGoalForm({ show: false, goal: "" });
+      api.users.goals(id).then((d: any) => setGoals(Array.isArray(d) ? d : d.goals ?? [])).catch(() => {});
     }).catch(() => {});
   }
 
   function toggleGoal(userId: string, goalId: string, completed: boolean) {
-    api.users.updateGoal(userId, goalId, { completed }).then(() => {
-      api.users.goals(userId).then(setGoals).catch(() => {});
+    api.users.updateGoal(userId, goalId, { status: completed ? "completed" : "active" }).then(() => {
+      api.users.goals(userId).then((d: any) => setGoals(Array.isArray(d) ? d : d.goals ?? [])).catch(() => {});
     }).catch(() => {});
   }
 
@@ -54,11 +54,11 @@ export default function UserDetailPage() {
         <Link href="/users" className="text-xs text-muted hover:text-foreground">← Back to Users</Link>
         <div className="flex items-center gap-4 mt-3">
           <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-accent text-xl font-mono font-bold">
-            {(user.name || user.id || "?").charAt(0).toUpperCase()}
+            {(user.display_name || user.username || user.id || "?").charAt(0).toUpperCase()}
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{user.name || user.id}</h1>
-            <p className="text-muted text-sm font-mono">{user.role || "developer"}</p>
+            <h1 className="text-2xl font-bold tracking-tight">{user.display_name || user.username || user.id}</h1>
+            <p className="text-muted text-sm font-mono">{user.role || "user"}</p>
           </div>
         </div>
       </div>
@@ -67,8 +67,8 @@ export default function UserDetailPage() {
         {[
           { label: "Projects", value: user.project_count ?? 0 },
           { label: "Goals", value: goals.length },
-          { label: "Active Goals", value: goals.filter((g: any) => !g.completed).length },
-          { label: "Role", value: user.role || "developer" },
+          { label: "Active Goals", value: goals.filter((g: any) => g.status !== "completed").length },
+          {label: "Role", value: user.role || "user" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4">
             <div className="text-[10px] text-muted">{s.label}</div>
@@ -90,10 +90,6 @@ export default function UserDetailPage() {
           <div className="flex gap-2 mb-4">
             <input aria-label="Goal description" value={goalForm.goal} onChange={(e) => setGoalForm(f => ({...f, goal: e.target.value}))}
               placeholder="Goal description" className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
-            <select aria-label="Goal priority" value={goalForm.priority} onChange={(e) => setGoalForm(f => ({...f, priority: e.target.value}))}
-              className="bg-surface border border-border rounded-lg px-3 py-2 text-sm">
-              {["low", "medium", "high", "critical"].map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
             <button type="button" onClick={createGoal} disabled={!goalForm.goal.trim()}
               className="px-3 py-2 bg-accent text-black rounded-lg text-sm font-medium disabled:opacity-40">Add</button>
           </div>
@@ -104,15 +100,11 @@ export default function UserDetailPage() {
         ) : (
           <div className="space-y-2">
             {goals.map((g: any) => (
-              <div key={g.goal_id || g.id} className="flex items-center gap-3 bg-surface rounded-lg px-4 py-3">
-                <input aria-label="Mark goal complete" type="checkbox" checked={g.completed} onChange={() => toggleGoal(id, g.goal_id || g.id, !g.completed)}
+              <div key={g.id} className="flex items-center gap-3 bg-surface rounded-lg px-4 py-3">
+                <input aria-label="Mark goal complete" type="checkbox" checked={g.status === "completed"} onChange={() => toggleGoal(id, g.id, g.status !== "completed")}
                   className="rounded accent-accent" />
-                <span className={`text-sm flex-1 ${g.completed ? "line-through text-muted" : ""}`}>{g.goal || g.description}</span>
-                <span className={`px-2 py-0.5 rounded text-xs font-mono ${
-                  g.priority === "critical" ? "bg-red-500/10 text-red-500" :
-                  g.priority === "high" ? "bg-orange-500/10 text-orange-500" :
-                  g.priority === "medium" ? "bg-accent/10 text-accent" : "bg-surface text-muted"
-                }`}>{g.priority || "medium"}</span>
+                <span className={`text-sm flex-1 ${g.status === "completed" ? "line-through text-muted" : ""}`}>{g.title}</span>
+                <span className="px-2 py-0.5 rounded text-xs font-mono bg-surface text-muted">{g.domain}</span>
               </div>
             ))}
           </div>

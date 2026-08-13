@@ -13,6 +13,9 @@ Output each file as a code block with the relative filepath in the opening fence
 ```
 Write all files needed for the implementation."""
 
+# ponytail: dirs where overwriting an existing file is allowed (scratch/output)
+_OVERWRITE_OK_DIRS = {"temp", "tmp", "output", "outputs", "build", "dist", "generated", "artifacts", "cache"}
+
 
 class CoderAgent(BaseAgent):
     def __init__(self, agent_id: str = "coder-1", config: Optional[Dict] = None):
@@ -94,11 +97,28 @@ class CoderAgent(BaseAgent):
         output = await self._llm_generate(prompt, SYSTEM_PROMPT, max_tokens=4096)
         files_written = []
         errors = []
-        for match in re.finditer(r'```(\S+)\n(.*?)```', output, re.DOTALL):
-            filepath = match.group(1)
-            content = match.group(2).strip()
-            full_path = Path(base_path) / filepath
+        base = Path(base_path).resolve()
+        for match in re.finditer(r'```\r?\n?(.*?)```', output, re.DOTALL):
+            block = match.group(1)
+            first_line, _, content = block.partition("\n")
+            filepath = first_line.strip()
+            content = content.strip()
+            # First line is a file path only if it looks like one (contains / \ or .);
+            # otherwise (e.g. ```python) it's a language tag — skip the block.
+            if not filepath or not any(c in filepath for c in "/\\."):
+                continue
+            full_path = (base / filepath).resolve()
             try:
+                # ponytail: containment check — no escaping base_path via ../ or absolute paths
+                if not full_path.is_relative_to(base):
+                    errors.append(f"{filepath}: path escapes base directory")
+                    continue
+                # Never overwrite existing files outside scratch/output dirs
+                if full_path.exists() and not any(
+                    p.lower() in _OVERWRITE_OK_DIRS for p in full_path.parts
+                ):
+                    errors.append(f"{filepath}: would overwrite existing file")
+                    continue
                 full_path.parent.mkdir(parents=True, exist_ok=True)
                 full_path.write_text(content)
                 files_written.append(filepath)
@@ -106,7 +126,7 @@ class CoderAgent(BaseAgent):
                 errors.append(f"{filepath}: {e}")
         return AgentResult(
             task_id=task.task_id,
-            success=len(errors) == 0,
+            success=len(files_written) > 0 and not errors,
             output=f"Wrote {len(files_written)} files: {', '.join(files_written)}" if files_written else output,
             error="; ".join(errors) if errors else None,
             metadata={"spec_snippet": spec[:200], "files_written": files_written, "task_type": "implementation"}

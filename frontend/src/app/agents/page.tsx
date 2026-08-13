@@ -31,19 +31,19 @@ export default function AgentsPage() {
   }, []);
 
   function loadRegistry() {
-    api.agents.registry().then((d: any) => setRegistry(Array.isArray(d) ? d : [])).catch(() => {});
-    api.agents.conflictHistory().then((d: any) => setConflicts(Array.isArray(d) ? d : [])).catch(() => {});
-    api.agents.disagreementUnresolved().then((d: any) => setDisagreements(Array.isArray(d) ? d : [])).catch(() => {});
+    api.agents.registry().then((d: any) => setRegistry(Array.isArray(d) ? d : d.agent_types ?? [])).catch(() => {});
+    api.agents.conflictHistory().then((d: any) => setConflicts(Array.isArray(d) ? d : d.conflicts ?? [])).catch(() => {});
+    api.agents.disagreementUnresolved().then((d: any) => setDisagreements(Array.isArray(d) ? d : d.disagreements ?? [])).catch(() => {});
   }
 
   function resolveConflict(data: Record<string, unknown>) {
-    api.agents.conflictResolve(data).then(() => api.agents.conflictHistory().then((d: any) => setConflicts(Array.isArray(d) ? d : []))).catch(() => {});
+    api.agents.conflictResolve(data).then(() => api.agents.conflictHistory().then((d: any) => setConflicts(Array.isArray(d) ? d : d.conflicts ?? []))).catch(() => {});
   }
 
   function resolveDisagreement(id: string) {
     const resolution = resInput[id] || "auto-resolved";
     api.agents.disagreementResolve(id, resolution).then(() => {
-      api.agents.disagreementUnresolved().then((d: any) => setDisagreements(Array.isArray(d) ? d : [])).catch(() => {});
+      api.agents.disagreementUnresolved().then((d: any) => setDisagreements(Array.isArray(d) ? d : d.disagreements ?? [])).catch(() => {});
       setResInput(r => { const n = {...r}; delete n[id]; return n; });
     }).catch(() => {});
   }
@@ -116,7 +116,7 @@ export default function AgentsPage() {
                   </div>
                   <p className="text-sm">{c.description || c.details}</p>
                   {!c.resolved && (
-                    <button type="button" onClick={() => resolveConflict({ conflict_id: c.conflict_id || c.id })}
+                    <button type="button" onClick={() => resolveConflict({ agents: c.agents ?? [], issue: c.topic ?? (c.conflict_id || c.id) })}
                       className="mt-2 px-3 py-1 text-xs bg-accent/10 text-accent rounded-lg">Resolve</button>
                   )}
                 </div>

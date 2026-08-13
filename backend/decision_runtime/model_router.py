@@ -59,10 +59,16 @@ class RuntimeModelRouter:
             preferred = self._first_available(available_models)
 
         if not preferred:
-            preferred = model_registry.get("local-small")
+            # ponytail: must pick an ENABLED model — a disabled default would
+            # AttributeError downstream when .name/.tier are accessed.
+            preferred = next((m for m in model_registry.list() if m.enabled), None)
 
         if prefer_local and preferred and preferred.provider != "ollama":
-            local = self._find_local_by_capability(preferred.capabilities)
+            # ponytail: only downgrade to local when it covers the model's key
+            # capability (e.g. cloud-reasoning's complex_reasoning). Matching on
+            # ANY shared capability silently downgraded architecture/critical
+            # tasks to local-large.
+            local = self._find_local_by_capability(preferred.capabilities[:1])
             if local:
                 preferred = local
 

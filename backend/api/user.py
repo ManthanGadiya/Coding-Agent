@@ -47,11 +47,15 @@ async def create_user(data: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.username == data.username).first()
     if existing:
         raise HTTPException(status_code=409, detail="Username already exists")
+    try:
+        skill_level = SkillLevel(data.skill_level) if data.skill_level else SkillLevel.INTERMEDIATE
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid skill_level: {data.skill_level}")
     user = User(
         username=data.username,
         display_name=data.display_name or data.username,
         email=data.email,
-        skill_level=SkillLevel(data.skill_level) if data.skill_level else SkillLevel.INTERMEDIATE,
+        skill_level=skill_level,
         preferences=data.preferences,
     )
     db.add(user)
@@ -84,7 +88,10 @@ async def update_user(user_id: str, data: UserUpdate, db: Session = Depends(get_
     if data.email:
         user.email = data.email
     if data.skill_level:
-        user.skill_level = SkillLevel(data.skill_level)
+        try:
+            user.skill_level = SkillLevel(data.skill_level)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid skill_level: {data.skill_level}")
     if data.preferences:
         user.preferences = {**(user.preferences or {}), **data.preferences}
     db.commit()
@@ -119,7 +126,10 @@ async def update_goal(user_id: str, goal_id: str, data: Dict[str, Any],
     if not goal:
         raise HTTPException(404, "Goal not found")
     if "status" in data:
-        goal.status = GoalStatus(data["status"])
+        try:
+            goal.status = GoalStatus(data["status"])
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid goal status: {data['status']}")
     if "progress" in data:
         goal.progress = int(data["progress"])
     if "title" in data:

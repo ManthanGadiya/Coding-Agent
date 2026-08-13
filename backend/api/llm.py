@@ -18,14 +18,15 @@ async def generate(request: LLMRequest):
 @router.get("/models")
 def list_models():
     router = get_model_router()
-    return {"routes": list(router.routes.keys())}
+    return [r.model for r in router.routes.values()]
 
 
 @router.post("/select")
 def select_model(data: dict):
     router = get_model_router()
+    model = data.get("model")
     route = router.select_model(data.get("task_type", "general"), data.get("complexity", "moderate"))
-    return {"provider": route.provider, "model": route.model}
+    return {"provider": route.provider, "model": model or route.model}
 
 
 @router.post("/stream")

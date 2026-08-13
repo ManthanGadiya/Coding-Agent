@@ -55,8 +55,11 @@ class EscalationPackage:
 
 
 class EscalationManager:
+    _MAX_ESCALATIONS = 1000  # ponytail: bounded history, no caching layer
+
     def __init__(self):
         self._escalations: List[EscalationPackage] = []
+        self._seq = 0
 
     def escalate(self, issue: str, severity: SeverityLevel, impact: str,
                  source_agent: str, evidence: Optional[List[str]] = None,
@@ -66,8 +69,9 @@ class EscalationManager:
                  target_agent: str = "manager",
                  correlation_id: Optional[str] = None) -> EscalationPackage:
         level = SEVERITY_TO_LEVEL.get(severity, EscalationLevel.AGENT_TO_MANAGER)
+        self._seq += 1
         pkg = EscalationPackage(
-            escalation_id=f"esc-{len(self._escalations) + 1}",
+            escalation_id=f"esc-{self._seq}",
             issue=issue,
             severity=severity,
             impact=impact,
@@ -83,9 +87,11 @@ class EscalationManager:
         )
 
         if level == EscalationLevel.EMERGENCY:
-            target_agent = "architect"
+            pkg.target_agent = "architect"
 
         self._escalations.append(pkg)
+        if len(self._escalations) > self._MAX_ESCALATIONS:
+            del self._escalations[:-self._MAX_ESCALATIONS]
 
         decision_trace.record(
             task=f"escalation: {issue[:80]}",

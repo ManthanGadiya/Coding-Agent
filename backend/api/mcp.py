@@ -73,11 +73,12 @@ class CallToolRequest(BaseModel):
     server: str
     tool: str
     arguments: dict = {}
+    args: dict = {}
 
 
 @router.post("/call")
 async def call_mcp_tool(req: CallToolRequest):
-    result = await call_tool(req.server, req.tool, req.arguments)
+    result = await call_tool(req.server, req.tool, req.args or req.arguments)
     return {"success": result.success, "data": result.data,
             "error": result.error, "metadata": result.metadata}
 

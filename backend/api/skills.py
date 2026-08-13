@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from backend.skills import get, list_skills, get_log
+from backend.tools import TOOL_REGISTRY
 
 from backend.core.model_router import get_model_router
 

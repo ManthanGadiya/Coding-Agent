@@ -68,7 +68,7 @@ export const api = {
     updateEntry: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/memory/entries/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     deleteEntry: (id: string) => fetchJSON<unknown>(`/api/v1/memory/entries/${id}`, { method: "DELETE" }),
     versions: (id: string) => fetchJSON<unknown[]>(`/api/v1/memory/entries/${id}/versions`),
-    compress: () => fetchJSON<unknown>("/api/v1/memory/compress", { method: "POST" }),
+    compress: (entryIds: string[]) => fetchJSON<unknown>("/api/v1/memory/compress", { method: "POST", body: JSON.stringify({ entry_ids: entryIds }) }),
     suggestCompress: () => fetchJSON<unknown>("/api/v1/memory/compress/suggest", { method: "POST" }),
     retentionScore: (id: string) => fetchJSON<unknown>(`/api/v1/memory/retention/score/${id}`),
     stale: () => fetchJSON<unknown[]>("/api/v1/memory/retention/stale"),
@@ -91,7 +91,7 @@ export const api = {
     artifacts: () => fetchJSON<unknown[]>("/api/v1/learning/knowledge/artifacts"),
     rulesPending: () => fetchJSON<unknown[]>("/api/v1/learning/knowledge/rules/pending"),
     rulesApproved: () => fetchJSON<unknown[]>("/api/v1/learning/knowledge/rules/approved"),
-    reviewRule: (id: string, approved: boolean) => fetchJSON<unknown>(`/api/v1/learning/knowledge/rules/${id}/review`, { method: "POST", body: JSON.stringify({ approved }) }),
+    reviewRule: (id: string, approve: boolean) => fetchJSON<unknown>(`/api/v1/learning/knowledge/rules/${id}/review`, { method: "POST", body: JSON.stringify({ approve }) }),
   },
 
   memoryRetrieval: {
@@ -148,7 +148,7 @@ export const api = {
     models: () => fetchJSON<string[]>("/api/v1/llm/models"),
     select: (model: string) => fetchJSON<unknown>("/api/v1/llm/select", { method: "POST", body: JSON.stringify({ model }) }),
     generate: (prompt: string) => fetchJSON<unknown>("/api/v1/llm/generate", { method: "POST", body: JSON.stringify({ prompt }) }),
-    stream: (prompt: string) => `/api/v1/llm/stream?prompt=${encodeURIComponent(prompt)}`,
+    stream: (prompt: string) => fetchJSON<unknown>("/api/v1/llm/stream", { method: "POST", body: JSON.stringify({ prompt }) }),
   },
 
   mcp: {
@@ -238,11 +238,11 @@ export const api = {
   },
 
   users: {
-    list: () => fetchJSON<unknown[]>("/api/v1/users"),
+    list: () => fetchJSON<{users: unknown[]}>("/api/v1/users"),
     create: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/users", { method: "POST", body: JSON.stringify(data) }),
     get: (id: string) => fetchJSON<unknown>(`/api/v1/users/${id}`),
     update: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    goals: (id: string) => fetchJSON<unknown[]>(`/api/v1/users/${id}/goals`),
+    goals: (id: string) => fetchJSON<{goals: unknown[]}>(`/api/v1/users/${id}/goals`),
     createGoal: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/users/${id}/goals`, { method: "POST", body: JSON.stringify(data) }),
     updateGoal: (userId: string, goalId: string, data: Record<string, unknown>) =>
       fetchJSON<unknown>(`/api/v1/users/${userId}/goals/${goalId}`, { method: "PATCH", body: JSON.stringify(data) }),

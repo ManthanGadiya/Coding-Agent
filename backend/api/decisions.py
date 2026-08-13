@@ -18,8 +18,9 @@ class OptionInput(BaseModel):
 
 
 class DecisionRequest(BaseModel):
-    objective: str
-    options: List[OptionInput]
+    objective: Optional[str] = None
+    context: Optional[str] = None
+    options: List[OptionInput] = []
     decision_type: DecisionType = DecisionType.OPERATIONAL
     constraints: List[str] = []
     evidence: List[str] = []
@@ -28,7 +29,7 @@ class DecisionRequest(BaseModel):
 @router.post("/decide")
 def make_decision(req: DecisionRequest):
     result = engine.decide(
-        objective=req.objective,
+        objective=req.objective or req.context or "",
         options=[o.model_dump() for o in req.options],
         decision_type=req.decision_type,
         constraints=req.constraints,
@@ -42,6 +43,18 @@ def decision_history(limit: int = 10):
     return engine.get_history(limit)
 
 
+class RiskAssessmentRequest(BaseModel):
+    action: Optional[str] = None
+    description: Optional[str] = None
+    impact: Optional[float] = None
+    likelihood: Optional[float] = None
+
+
 @router.post("/assess-risk")
-def assess_risk(description: str, impact: float = 0.5, likelihood: float = 0.5):
+def assess_risk(req: Optional[RiskAssessmentRequest] = None,
+                description: str = "unknown action", impact: float = 0.5, likelihood: float = 0.5):
+    if req:
+        description = req.action or req.description or description
+        impact = req.impact if req.impact is not None else impact
+        likelihood = req.likelihood if req.likelihood is not None else likelihood
     return engine.assess_risk(description, impact, likelihood)

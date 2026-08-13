@@ -26,10 +26,30 @@ class StepDefinition(BaseModel):
     critical: bool = False
 
 
+# Map frontend workflow category names to WorkflowType enum values.
+_WORKFLOW_TYPE_MAP = {
+    "feature": WorkflowType.FEATURE_DEVELOPMENT,
+    "bug_fix": WorkflowType.BUG_FIXING,
+    "refactor": WorkflowType.REFACTORING,
+    "release": WorkflowType.RELEASE,
+}
+
+
+def _coerce_workflow_type(value) -> WorkflowType:
+    if isinstance(value, WorkflowType):
+        return value
+    if value in _WORKFLOW_TYPE_MAP:
+        return _WORKFLOW_TYPE_MAP[value]
+    for wt in WorkflowType:
+        if wt.value == value:
+            return wt
+    return WorkflowType.SIMPLE
+
+
 class WorkflowCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    workflow_type: WorkflowType = WorkflowType.SIMPLE
+    workflow_type: str = WorkflowType.SIMPLE.value
     project_id: Optional[str] = None
     steps: List[StepDefinition] = []
     metadata: Optional[Dict[str, Any]] = None
@@ -71,7 +91,7 @@ def create_workflow(wf: WorkflowCreate, db: Session = Depends(get_db)):
     db_wf = Workflow(
         name=wf.name,
         description=wf.description,
-        workflow_type=wf.workflow_type,
+        workflow_type=_coerce_workflow_type(wf.workflow_type),
         project_id=wf.project_id,
         steps=step_dicts,
         total_steps=len(step_dicts),
@@ -133,7 +153,10 @@ def generate_blueprint(req: BlueprintRequest):
     if req.severity: kwargs["severity"] = req.severity
     if req.impact: kwargs["impact"] = req.impact
     if req.release_type: kwargs["release_type"] = req.release_type
-    bp = get_workflow_blueprint(req.category, req.complexity, **kwargs)
+    try:
+        bp = get_workflow_blueprint(req.category, req.complexity, **kwargs)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid complexity: {req.complexity}")
     if not bp:
         raise HTTPException(status_code=400, detail=f"Unknown workflow category: {req.category}")
     return {

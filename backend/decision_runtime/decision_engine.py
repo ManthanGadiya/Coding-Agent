@@ -1,3 +1,6 @@
+import asyncio
+import inspect
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -18,6 +21,8 @@ from backend.decision_runtime.memory_hooks import memory_hooks
 from backend.decision_runtime.logger import decision_logger, LogLevel
 # ponytail: lazy import to break circular dependency with backend.agents.manager
 # agents are created via _dispatch_agent which imports locally
+
+_HISTORY_CAP = 1000  # ponytail: bounded in-memory history, add persistence when needed
 
 
 @dataclass
@@ -53,6 +58,16 @@ class RuntimeEngine:
         self._dispatched: Dict[str, Dict[str, Any]] = {}
 
     def decide(self, request: DecisionRequest) -> Dict[str, Any]:
+        # ponytail: asyncio.run() ONLY at the outermost non-async entry, never
+        # inside a running loop (FastAPI / autonomous loop would raise).
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self.decide_async(request))
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, self.decide_async(request)).result()
+
+    async def decide_async(self, request: DecisionRequest) -> Dict[str, Any]:
         ctx = DecisionContext(
             request=request,
             start_time=datetime.utcnow().isoformat(),
@@ -82,27 +97,40 @@ class RuntimeEngine:
 
         ctx.state = state_machine.create(f"decision-{id(request)}")
 
-        self._exec_step(ctx, RuntimeState.CLASSIFYING, lambda: self._step_classify(ctx, request))
-        self._exec_step(ctx, RuntimeState.MEMORY_LOADING, lambda: None)
-        self._exec_step(ctx, RuntimeState.CORE_DECISION, lambda: self._step_core_decision(ctx, request))
-        self._exec_step(ctx, RuntimeState.AGENT_SELECTION, lambda: self._step_agents(ctx, request))
-        self._exec_step(ctx, RuntimeState.SKILL_SELECTION, lambda: self._step_skills(ctx, request))
-        self._exec_step(ctx, RuntimeState.MCP_SELECTION, lambda: self._step_mcps(ctx, request))
-        self._exec_step(ctx, RuntimeState.MODEL_SELECTION, lambda: self._step_model(ctx, request))
-        self._exec_step(ctx, RuntimeState.APPROVAL_CHECK, lambda: self._step_approvals(ctx, request))
-        self._exec_step(ctx, RuntimeState.RESEARCHING, lambda: self._set_agent_output(ctx, "planner", "research", request.task))
-        self._exec_step(ctx, RuntimeState.ARCHITECTING, lambda: self._set_agent_output(ctx, "architect", "design_architecture", request.task))
-        self._exec_step(ctx, RuntimeState.PLANNING, lambda: self._step_execute(ctx))
-        self._exec_step(ctx, RuntimeState.APPROVING, lambda: self._set_agent_output(ctx, "reviewer", "approve", request.task))
-        self._exec_step(ctx, RuntimeState.IMPLEMENTING, lambda: self._set_agent_output(ctx, "coder", "implement", request.task))
-        self._exec_step(ctx, RuntimeState.TESTING, lambda: self._set_agent_output(ctx, "tester", "testing", request.task))
-        self._exec_step(ctx, RuntimeState.REVIEWING, lambda: self._set_agent_output(ctx, "reviewer", "review", request.task))
-        self._exec_step(ctx, RuntimeState.DOCUMENTING, lambda: self._set_agent_output(ctx, "docs", "document", request.task))
-        self._exec_step(ctx, RuntimeState.VALIDATING, lambda: self._step_validate(ctx))
-        self._exec_step(ctx, RuntimeState.MEMORY_UPDATING, lambda: self._step_memory(ctx, request))
+        await self._exec_step(ctx, RuntimeState.CLASSIFYING, lambda: self._step_classify(ctx, request))
+        await self._exec_step(ctx, RuntimeState.MEMORY_LOADING, lambda: None)
+        await self._exec_step(ctx, RuntimeState.CORE_DECISION, lambda: self._step_core_decision(ctx, request))
+        await self._exec_step(ctx, RuntimeState.AGENT_SELECTION, lambda: self._step_agents(ctx, request))
+        await self._exec_step(ctx, RuntimeState.SKILL_SELECTION, lambda: self._step_skills(ctx, request))
+        await self._exec_step(ctx, RuntimeState.MCP_SELECTION, lambda: self._step_mcps(ctx, request))
+        await self._exec_step(ctx, RuntimeState.MODEL_SELECTION, lambda: self._step_model(ctx, request))
+        await self._exec_step(ctx, RuntimeState.APPROVAL_CHECK, lambda: self._step_approvals(ctx, request))
+
+        # Block execution while approvals are pending instead of proceeding.
+        if any(req.status == ApprovalStatus.PENDING for req in ctx.approvals.values()):
+            ctx.errors.append(
+                f"Execution blocked: {len(ctx.approvals)} approval(s) pending")
+            state_machine.transition(ctx.state.instance_id, RuntimeState.BLOCKED,
+                                     "Pending approvals")
+            return self._finalize(ctx, request, trace)
+
+        await self._exec_step(ctx, RuntimeState.RESEARCHING, lambda: self._set_agent_output(ctx, "planner", "research", request.task))
+        await self._exec_step(ctx, RuntimeState.ARCHITECTING, lambda: self._set_agent_output(ctx, "architect", "design_architecture", request.task))
+        await self._exec_step(ctx, RuntimeState.PLANNING, lambda: self._step_execute(ctx))
+        await self._exec_step(ctx, RuntimeState.APPROVING, lambda: self._set_agent_output(ctx, "reviewer", "approve", request.task))
+        await self._exec_step(ctx, RuntimeState.IMPLEMENTING, lambda: self._set_agent_output(ctx, "coder", "implement", request.task))
+        await self._exec_step(ctx, RuntimeState.TESTING, lambda: self._set_agent_output(ctx, "tester", "testing", request.task))
+        await self._exec_step(ctx, RuntimeState.REVIEWING, lambda: self._set_agent_output(ctx, "reviewer", "review", request.task))
+        await self._exec_step(ctx, RuntimeState.DOCUMENTING, lambda: self._set_agent_output(ctx, "docs", "document", request.task))
+        await self._exec_step(ctx, RuntimeState.VALIDATING, lambda: self._step_validate(ctx))
+        await self._exec_step(ctx, RuntimeState.MEMORY_UPDATING, lambda: self._step_memory(ctx, request))
         state_machine.transition(ctx.state.instance_id, RuntimeState.COMPLETED,
                                   "All phases completed")
 
+        return self._finalize(ctx, request, trace)
+
+    def _finalize(self, ctx: DecisionContext, request: DecisionRequest,
+                  trace: Any) -> Dict[str, Any]:
         result = self._build_final_result(ctx, request)
 
         memory_hooks.record_decision(result)
@@ -119,6 +147,8 @@ class RuntimeEngine:
             "task": ctx.request.task,
             "result": result,
         })
+        if len(self._history) > _HISTORY_CAP:
+            del self._history[:-_HISTORY_CAP]
 
         event_bus.publish(Event(
             topic="engine.completed",
@@ -130,10 +160,12 @@ class RuntimeEngine:
 
         return result
 
-    def _exec_step(self, ctx: DecisionContext, state: RuntimeState, fn):
+    async def _exec_step(self, ctx: DecisionContext, state: RuntimeState, fn):
         state_machine.transition(ctx.state.instance_id, state)
         try:
-            fn()
+            result = fn()
+            if inspect.isawaitable(result):
+                await result
         except Exception as e:
             ctx.errors.append(f"{state.value}: {e}")
             decision_logger.error("engine.step_failed", str(e),
@@ -147,8 +179,8 @@ class RuntimeEngine:
         "memory": "memory", "docs": "planner",
     }
 
-    def _set_agent_output(self, ctx: DecisionContext, role: str, task_type: str, task: str):
-        result = self._dispatch_agent(role, task_type, {
+    async def _set_agent_output(self, ctx: DecisionContext, role: str, task_type: str, task: str):
+        result = await self._dispatch_agent(role, task_type, {
             "goal": task, "task_type": task_type,
             "context": ctx.request.context,
             "correlation_id": ctx.request.correlation_id,
@@ -157,7 +189,7 @@ class RuntimeEngine:
         if result.get("status") == "error":
             ctx.errors.append(f"{role}: {result.get('error')}")
 
-    def _dispatch_agent(self, agent_type: str, task_desc: str,
+    async def _dispatch_agent(self, agent_type: str, task_desc: str,
                         input_data: Dict[str, Any]) -> Dict[str, Any]:
         from backend.agents import create_agent
         from backend.agents.base import AgentTask
@@ -165,7 +197,6 @@ class RuntimeEngine:
         if not cls:
             return {"status": "skipped", "reason": f"No agent class for {agent_type}"}
         try:
-            import asyncio
             agent = create_agent(cls)
             if not agent:
                 return {"status": "error", "error": f"Failed to create agent {cls}"}
@@ -175,7 +206,7 @@ class RuntimeEngine:
                 description=task_desc,
                 input_data=input_data,
             )
-            result = asyncio.run(agent.execute_task(task))
+            result = await agent.execute_task(task)
             return {"status": "completed" if result.success else "failed",
                     "output": str(result.output)[:1000] if result.output else "",
                     "error": result.error}
@@ -294,7 +325,7 @@ class RuntimeEngine:
         if not validation.get("completable"):
             ctx.errors.append("Validation blocked completion")
 
-    def _step_memory(self, ctx: DecisionContext, request: DecisionRequest):
+    async def _step_memory(self, ctx: DecisionContext, request: DecisionRequest):
         for error in ctx.errors:
             memory_hooks.record_error(error, {"correlation_id": ctx.request.correlation_id})
             try:
@@ -307,7 +338,7 @@ class RuntimeEngine:
                 )
             except Exception:
                 pass
-        store_result = self._dispatch_agent("memory", "store", {
+        store_result = await self._dispatch_agent("memory", "store", {
             "goal": request.task,
             "task_type": "store",
             "key": f"decision-{request.correlation_id or id(ctx)}",
@@ -364,7 +395,7 @@ class RuntimeEngine:
         return tasks
 
     def _validate_execution(self, ctx: DecisionContext) -> Dict:
-        from backend.decision_runtime.escalation import escalation_manager, EscalationLevel
+        from backend.decision_runtime.escalation import escalation_manager, SeverityLevel
         arch = self._dispatched.get("architect", {})
         impl = self._dispatched.get("coder", {})
         test = self._dispatched.get("tester", {})
@@ -385,40 +416,42 @@ class RuntimeEngine:
         })
         if not validation.get("completable"):
             escalation_manager.escalate(
-                EscalationLevel.STEP_BLOCKER,
-                source="decision_engine",
-                title=f"Validation failed for {ctx.request.task[:80]}",
-                description=f"Blocking checks: {validation.get('blocking_issues', [])}",
-                data=validation,
+                issue=f"Validation failed for {ctx.request.task[:80]}",
+                severity=SeverityLevel.SIGNIFICANT_RISK,
+                impact="Decision pipeline validation failed",
+                source_agent="decision_engine",
+                evidence=[str(validation.get("blocking_issues", []))],
+                recommendations=["Review and re-run validation"],
+                confidence="medium",
+                proposed_action="review",
                 correlation_id=ctx.request.correlation_id,
             )
         return validation
 
     def _build_final_result(self, ctx: DecisionContext, request: DecisionRequest) -> Dict[str, Any]:
+        approvals_pending = sum(
+            1 for a in ctx.approvals.values() if a.status == ApprovalStatus.PENDING)
         result = {
-            "status": "completed" if not ctx.errors else "completed_with_warnings",
+            "status": ("blocked" if approvals_pending else
+                       ("completed" if not ctx.errors else "completed_with_warnings")),
             "decision_id": f"dec-{id(ctx)}",
             "correlation_id": ctx.request.correlation_id,
             "task": ctx.request.task,
             "plan": ctx.result or {},
             "errors": ctx.errors,
             "mode": request.mode.value,
-            "priorities": mode_controller.priorities(),
+            "priorities": mode_controller.priorities(request.mode),
             "summary": {
                 "task_type": ctx.classification.task_type.value if ctx.classification else "unknown",
                 "complexity": ctx.classification.complexity if ctx.classification else "unknown",
                 "agents_selected": ctx.selected_agents.selected_agents if ctx.selected_agents else [],
                 "mcps_selected": [m.name for m in ctx.selected_mcps],
                 "model": ctx.model_selection.primary.name if ctx.model_selection and ctx.model_selection.primary else None,
-                "approvals_pending": len(ctx.approvals),
+                "approvals_pending": approvals_pending,
                 "structured_decision": ctx.structured_decision.get("recommendation") if ctx.structured_decision else None,
             },
             "timestamp": datetime.utcnow().isoformat(),
         }
-
-        for entry in ctx.approvals.values():
-            if entry.status == ApprovalStatus.PENDING:
-                result["summary"]["approvals_pending"] += 1
 
         return result
 

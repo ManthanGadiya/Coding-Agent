@@ -158,7 +158,7 @@ class ManagerAgent(BaseAgent):
         entries = result.output if isinstance(result.output, list) else []
         return "\n".join(f"- [{e.get('category','?')}] {e.get('key','')}: {str(e.get('value',''))[:200]}" for e in entries)
 
-    async def _debugger_loop(self, goal: str, goal_context: Dict, task_type: str, complexity_label: str, pipeline, step_def: Dict, max_retries: int = 3) -> Dict[str, Any]:
+    async def _debugger_loop(self, goal: str, goal_context: Dict, task_type: str, complexity_label: str, pipeline, step_def: Dict, error: str = "", max_retries: int = 3) -> Dict[str, Any]:
         test_agent = self.get_agent("tester-1")
         debugger = self.get_agent("debugger-1")
         coder = self.get_agent("coder-1")
@@ -169,7 +169,7 @@ class ManagerAgent(BaseAgent):
                 task_id=f"{pipeline.id}-debug-{attempt}",
                 task_type="diagnose",
                 description=f"Debug attempt {attempt}",
-                input_data={"error": step_def.get("error", ""), "context": str(goal_context), "code_snippet": ""},
+                input_data={"error": error or step_def.get("error", ""), "context": str(goal_context), "code_snippet": ""},
             )
             debug_result = await debugger.execute_task(debug_task)
             fix_task = AgentTask(
@@ -189,7 +189,7 @@ class ManagerAgent(BaseAgent):
             task_id=f"{pipeline.id}-step-{id(step_def)}",
             task_type=task_type_for_step,
             description=step_def["description"],
-            input_data={"goal": goal, "task_type": task_type, "complexity": complexity_label, "context": goal_context, "step": step_def},
+            input_data={"goal": goal, "spec": goal, "task_type": task_type, "complexity": complexity_label, "context": goal_context, "step": step_def},
         )
         result = await agent.execute_task(task)
         return {"step": step_def["name"], "agent": agent_name, "status": "completed" if result.success else "failed", "task_type": task_type_for_step, "output": str(result.output)[:500], "error": result.error, "raw_output": result.output}
@@ -243,7 +243,7 @@ class ManagerAgent(BaseAgent):
                 ))
             if step_result["status"] != "completed":
                 if task_type_for_step == "run_test":
-                    debug_result = await self._debugger_loop(goal, goal_context, task_type, complexity_label, pipeline, step_def)
+                    debug_result = await self._debugger_loop(goal, goal_context, task_type, complexity_label, pipeline, step_def, error=step_result.get("error"))
                     if debug_result["status"] == "completed":
                         results.append({"step": "debugger_recovery", "agent": "debugger-1", "status": "completed", "task_type": "debug_loop", "output": f"Recovered after {debug_result.get('debug_attempts', '?')} attempts", "error": None})
                         continue
