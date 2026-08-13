@@ -11,6 +11,31 @@ from backend.models.llm import LLMRequest
 from backend.tools import get_tool, ToolResult
 from backend.core.safety import safety_controller
 
+# Hints for the decision_runtime per-task-type router (values are TaskType names).
+# Used by _llm_generate() when the runtime router is available; otherwise the core
+# router's existing behavior is preserved.
+_AGENT_TASK_TYPES = {
+    "implement": "feature", "create_file": "feature", "modify_file": "feature",
+    "refactor": "refactor", "fix": "bug_fix", "run_test": "testing",
+    "run_lint": "testing", "run_build": "deployment",
+    "architecture_design": "architecture", "system_design": "system_design",
+    "research": "research", "plan_generation": "project_planning",
+    "write_test": "testing", "check_coverage": "testing", "run_test_suite": "testing",
+    "diagnose": "debugging", "analyze_error": "debugging", "trace": "debugging",
+    "suggest_fix": "debugging", "reproduce": "debugging",
+    "review_code": "review", "review_architecture": "review", "review_security": "review",
+}
+_AGENT_ROLE_TYPES = {
+    "architect": "architecture", "coder": "feature", "tester": "testing",
+    "debugger": "debugging", "reviewer": "review", "planner": "project_planning",
+    "manager": "general", "memory": "documentation",
+}
+# Runtime router ModelDef.tier -> core router complexity (TASK_MODEL_MAP keys)
+_TIER_COMPLEXITY = {
+    "small": "simple", "medium": "moderate", "large": "complex",
+    "fast": "critical", "balanced": "critical", "reasoning": "critical",
+}
+
 
 class AgentState(str, Enum):
     IDLE = "idle"
@@ -78,12 +103,44 @@ class BaseAgent(ABC):
         self._task_history: List[AgentResult] = []
 
     async def _llm_generate(self, prompt: str, system_prompt: str = "", max_tokens: int = 1024) -> str:
-        router = get_model_router()
-        resp = await router.generate(LLMRequest(
+        req = LLMRequest(
             prompt=prompt, system_prompt=system_prompt,
             task_type=self.agent_id, max_tokens=max_tokens,
-        ))
+            context={"agent_id": self.agent_id},
+        )
+        try:
+            # Route through the decision_runtime per-task-type router when available.
+            from backend.decision_runtime.task_classifier import task_classifier, TaskType, ClassificationResult
+            from backend.decision_runtime.model_router import runtime_model_router
+            selection = runtime_model_router.select(
+                self._runtime_classification(prompt, task_classifier, TaskType, ClassificationResult),
+                prefer_local=False,  # honor MODEL_TASK_MAP (Architecture->cloud-reasoning, Testing->local-small)
+                context=req.context,
+            )
+            if selection.primary:
+                req.context["complexity"] = _TIER_COMPLEXITY.get(selection.primary.tier, "moderate")
+                req.context["model_route"] = selection.primary.name
+                req.context["model_reasoning"] = selection.reasoning
+                req.context["model_cost"] = selection.estimated_cost
+                req.context["model_latency_ms"] = selection.estimated_latency_ms
+        except Exception:
+            pass  # runtime router unavailable -> core router default behavior (backward compatible)
+        resp = await get_model_router().generate(req)
         return resp.content
+
+    def _runtime_classification(self, prompt: str, task_classifier, TaskType, ClassificationResult) -> ClassificationResult:
+        """Pick a TaskType for the runtime router: current task type -> agent role -> prompt classification."""
+        task_type = None
+        if self.current_task and self.current_task.task_type:
+            task_type = _AGENT_TASK_TYPES.get(self.current_task.task_type)
+        if task_type is None:
+            task_type = _AGENT_ROLE_TYPES.get(self.agent_id.split("-")[0])
+        if task_type is not None:
+            return ClassificationResult(
+                task_type=TaskType(task_type), confidence=0.9,
+                complexity="moderate", complexity_score=4, scope="medium", risk="low",
+            )
+        return task_classifier.classify(prompt)
 
     @abstractmethod
     async def process_task(self, task: AgentTask) -> AgentResult:
