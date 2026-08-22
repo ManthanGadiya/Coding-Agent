@@ -619,14 +619,16 @@ Self-organizing memory network.
 
 ---
 # 25. Memory Serialization Standard
-All internal memory records should use TOON.
+All internal memory records are stored as SQLAlchemy rows with JSON columns.
 
 Reasons:
 
-- Lower token usage
-- Better context density
-- Easier compression
-- Better memory retrieval
+- Native persistence via SQLAlchemy models
+- Structured fields (tags, related entries) as JSON columns
+- Directly queryable and type-mapped
+- Consistent with the rest of the backend
+
+Note: TOON serialization was removed from the codebase in August 2026.
 
 Exceptions:
 

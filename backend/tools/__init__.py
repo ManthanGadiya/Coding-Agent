@@ -137,6 +137,9 @@ class FileTool(BaseTool):
     def _write(self, path: str, content: str) -> ToolResult:
         try:
             from pathlib import Path
+            err = _validate_path(path)
+            if err:
+                return ToolResult(success=False, error=err)
             Path(path).parent.mkdir(parents=True, exist_ok=True)
             with open(path, "w") as f:
                 f.write(content)
@@ -147,6 +150,9 @@ class FileTool(BaseTool):
     def _delete(self, path: str) -> ToolResult:
         try:
             from pathlib import Path
+            err = _validate_path(path)
+            if err:
+                return ToolResult(success=False, error=err)
             Path(path).unlink()
             return ToolResult(success=True, data=f"Deleted {path}")
         except Exception as e:

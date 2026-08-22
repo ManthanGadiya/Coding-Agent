@@ -6,7 +6,7 @@ Status: Active
 
 Authority Level: High
 
-Storage Format: TOON
+Storage Format: JSON (SQLAlchemy)
 
 Related Documents:
 

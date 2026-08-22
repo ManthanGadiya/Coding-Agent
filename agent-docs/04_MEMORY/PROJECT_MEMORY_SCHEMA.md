@@ -6,7 +6,7 @@ Status: Active
 
 Authority Level: High
 
-Storage Format: TOON
+Storage Format: JSON (SQLAlchemy)
 
 Related Documents:
 
@@ -61,11 +61,11 @@ What should future work know?
 
 # 3. STORAGE FORMAT
 
-All Project Memory records shall use TOON.
+All Project Memory records are persisted as SQLAlchemy rows (SQLite via camera.db).
 
-External integrations may use JSON.
+Text fields store plain text; structured fields (tags, related entries, metadata) use JSON columns.
 
-Internal knowledge representation remains TOON.
+TOON was removed from the codebase in August 2026 and is no longer used.
 
 ---
 

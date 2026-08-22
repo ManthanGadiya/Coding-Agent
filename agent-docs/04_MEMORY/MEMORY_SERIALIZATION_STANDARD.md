@@ -1,12 +1,17 @@
 # MEMORY_SERIALIZATION_STANDARD.md
 
-Version: 1.0
+Version: 2.0
 
-Status: Active
+Status: Superseded
 
-Authority Level: High
+Authority Level: Historical Reference Only
 
-Storage Format: TOON
+Storage Format: JSON (SQLAlchemy)
+
+Supersession Note (2026-08-22): TOON was removed from the codebase
+(core/toon.py deleted). Memory records are persisted as SQLAlchemy rows with
+JSON columns per backend/models/memory.py. This document is retained as
+historical design intent only.
 
 Related Documents:
 

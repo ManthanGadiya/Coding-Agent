@@ -64,12 +64,19 @@ async def test_file_tool_read_write():
 async def test_file_tool_write():
     ft = TOOL_REGISTRY["file"]
     import tempfile, os
-    tmp = tempfile.mktemp(suffix=".txt")
+    tmp = str(PROJECT_ROOT / "_tool_write_test.tmp")
     try:
         r = await ft.execute(action="write", path=tmp, content="test content")
         assert r.success
         with open(tmp) as f:
             assert f.read() == "test content"
+        outside = await ft.execute(
+            action="write",
+            path=os.path.join(os.path.dirname(str(PROJECT_ROOT)), "evil.txt"),
+            content="x",
+        )
+        assert not outside.success
+        assert "outside project root" in outside.error
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)

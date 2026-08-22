@@ -613,20 +613,17 @@ Every project should improve the next project.
 ---
 # 28. Storage Format
 
+All memory records are stored as SQLAlchemy rows with JSON columns
+(backend/models/memory.py):
+
 Global Memory:
-TOON
+SQLAlchemy table global_memory
 
 Project Memory:
-TOON
+SQLAlchemy table project_memory
 
-Lessons:
-TOON
-
-Decision Records:
-TOON
-
-Knowledge Graph:
-TOON
+Lessons / Decision Records / Knowledge Graph:
+SQLAlchemy-persisted records via the Learning, Decision, and Knowledge engines
 
 # 29    . FINAL DIRECTIVE
 
