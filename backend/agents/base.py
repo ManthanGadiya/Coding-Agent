@@ -169,7 +169,7 @@ class BaseAgent(ABC):
                 await self.handle_message(message)
             except asyncio.TimeoutError:
                 continue
-            except Exception as e:
+            except Exception:
                 self.state = AgentState.ERROR
 
     async def send_message(self, receiver: str, content: str, message_type: str = "info", metadata: Optional[Dict] = None) -> AgentMessage:

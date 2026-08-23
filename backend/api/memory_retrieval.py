@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter
 from typing import List, Optional, Dict
 from pydantic import BaseModel
 from backend.core.memory_retrieval import MemoryRetriever

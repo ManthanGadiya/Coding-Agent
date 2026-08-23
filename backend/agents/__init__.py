@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Type
+from typing import Dict, Optional
 
 from backend.agents.base import BaseAgent
 from backend.agents.coder import CoderAgent

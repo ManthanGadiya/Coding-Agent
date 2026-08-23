@@ -7,18 +7,18 @@ from datetime import datetime
 
 from backend.decision_runtime.event_bus import event_bus, Event, EventPriority
 from backend.decision_runtime.state_machine import state_machine, RuntimeState, StateMachineInstance
-from backend.decision_runtime.task_classifier import task_classifier, TaskType, ClassificationResult
+from backend.decision_runtime.task_classifier import task_classifier, ClassificationResult
 from backend.decision_runtime.agent_selector import agent_selector, SelectionResult
 from backend.decision_runtime.skill_selector import skill_selector
 from backend.decision_runtime.mcp_selector import mcp_selector
 from backend.decision_runtime.model_router import runtime_model_router, ModelSelection
 from backend.decision_runtime.environment_mode import mode_controller, EnvironmentMode
 from backend.decision_runtime.decision_trace import decision_trace
-from backend.decision_runtime.approval_manager import approval_manager, ApprovalScope, ApprovalStatus
+from backend.decision_runtime.approval_manager import approval_manager, ApprovalStatus
 from backend.decision_runtime.conflict_resolver import conflict_resolver
 from backend.decision_runtime.completion_validator import completion_validator
 from backend.decision_runtime.memory_hooks import memory_hooks
-from backend.decision_runtime.logger import decision_logger, LogLevel
+from backend.decision_runtime.logger import decision_logger
 # ponytail: lazy import to break circular dependency with backend.agents.manager
 # agents are created via _dispatch_agent which imports locally
 

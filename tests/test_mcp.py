@@ -1,8 +1,7 @@
 import pytest
 from backend.mcp import (
-    MCPServerConfig, TransportType, MCPResponse,
-    register_server, remove_server, get_server, list_servers,
-    list_connected, log_use, get_log,
+    MCPServerConfig, TransportType, register_server, remove_server, get_server, list_servers,
+    log_use, get_log,
 )
 
 

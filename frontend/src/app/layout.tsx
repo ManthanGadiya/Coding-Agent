@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
+import { ApiErrorBanner } from "@/components/api-error-banner";
 
 export const metadata: Metadata = {
   title: "CAMera",
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="h-full flex">
         <Sidebar />
         <main className="flex-1 overflow-auto p-8 ml-60">{children}</main>
+        <ApiErrorBanner />
       </body>
     </html>
   );

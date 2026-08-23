@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 from abc import ABC, abstractmethod

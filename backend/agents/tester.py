@@ -86,7 +86,6 @@ class TesterAgent(BaseAgent):
         return self._run_cmd(cmd, data)
 
     def _validate(self, data: Dict) -> AgentResult:
-        input_data = data.get("input")
         expected = data.get("expected")
         actual = data.get("actual")
         passed = expected == actual

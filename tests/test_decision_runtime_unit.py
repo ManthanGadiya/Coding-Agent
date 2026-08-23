@@ -1,8 +1,8 @@
 import pytest
 from backend.decision_runtime.task_classifier import task_classifier, TaskType, TASK_KEYWORDS
-from backend.decision_runtime.state_machine import state_machine, RuntimeState, StateMachine
+from backend.decision_runtime.state_machine import RuntimeState, StateMachine
 from backend.decision_runtime.approval_manager import approval_manager, ApprovalScope, ApprovalStatus
-from backend.decision_runtime.registries import BaseRegistry, AgentCapability, SkillDef, MCPDef, ModelDef
+from backend.decision_runtime.registries import BaseRegistry, AgentCapability, SkillDef
 
 
 class TestTaskClassifier:
@@ -63,7 +63,7 @@ class TestStateMachine:
 
     def test_valid_transition(self):
         sm = StateMachine()
-        inst = sm.create("test-2")
+        sm.create("test-2")
         result = sm.transition("test-2", RuntimeState.CLASSIFYING)
         assert result.current_state == RuntimeState.CLASSIFYING
         assert len(result.transitions) == 1
@@ -168,8 +168,8 @@ class TestApprovalManager:
         assert req.status == ApprovalStatus.PENDING
 
     def test_approve(self):
-        req = approval_manager.request(ApprovalScope.DEPLOYMENT, "Approve deploy",
-                                        data={}, requested_by="tester")
+        approval_manager.request(ApprovalScope.DEPLOYMENT, "Approve deploy",
+                                 data={}, requested_by="tester")
         pending = approval_manager.get_pending()
         rid = list(pending.keys())[0]
         result = approval_manager.respond(rid, approved=True, by="manager", response="Looks good")
@@ -177,8 +177,8 @@ class TestApprovalManager:
         assert result.approved_by == "manager"
 
     def test_reject(self):
-        req = approval_manager.request(ApprovalScope.STRATEGIC_DECISION, "Reject strategic",
-                                        data={}, requested_by="tester")
+        approval_manager.request(ApprovalScope.STRATEGIC_DECISION, "Reject strategic",
+                                 data={}, requested_by="tester")
         pending = approval_manager.get_pending()
         rid = list(pending.keys())[0]
         result = approval_manager.respond(rid, approved=False, by="manager", response="Not ready")

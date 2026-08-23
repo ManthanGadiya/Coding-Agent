@@ -3,8 +3,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from backend.decision_runtime.decision_engine import runtime_engine, DecisionRequest
 from backend.decision_runtime.environment_mode import EnvironmentMode
-from backend.decision_runtime.state_machine import state_machine, RuntimeState
-from backend.decision_runtime.completion_validator import completion_validator
 
 passed = 0
 failed = 0

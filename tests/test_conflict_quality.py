@@ -1,5 +1,4 @@
-import pytest
-from backend.decision_runtime.conflict_resolver import conflict_resolver, ConflictSeverity
+from backend.decision_runtime.conflict_resolver import conflict_resolver
 from backend.core.workflow_engine import evaluate_quality_gate, evaluate_completion_criteria
 
 

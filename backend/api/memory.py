@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict
+from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -239,7 +239,6 @@ class CompressRequest(BaseModel):
 
 @router.post("/compress")
 def compress_memories(req: CompressRequest, db: Session = Depends(get_db)):
-    from backend.core.compression import memory_compressor
 
     entries = db.query(MemoryEntry).filter(MemoryEntry.id.in_(req.entry_ids)).all()
     if not entries:
@@ -264,7 +263,6 @@ def compress_memories(req: CompressRequest, db: Session = Depends(get_db)):
 
 @router.post("/compress/suggest")
 def suggest_compression(db: Session = Depends(get_db)):
-    from backend.core.compression import memory_compressor
 
     entries = db.query(MemoryEntry).filter(
         MemoryEntry.status == MemoryStatus.ACTIVE

@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from typing import Optional
 from pydantic import BaseModel
 
 from backend.tools import (
-    TOOL_REGISTRY, get_tool, get_tool_audit_log, ToolResult
+    TOOL_REGISTRY, get_tool, get_tool_audit_log
 )
 from backend.core.autonomy import AutonomyController, SafetyManager
 from backend.core.safety import safety_controller

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 
 AGENT_RETRIEVAL_PROFILES: Dict[str, Dict[str, float]] = {

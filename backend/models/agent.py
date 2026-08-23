@@ -1,5 +1,5 @@
 from sqlalchemy import String, Text, Enum as SQLEnum, ForeignKey, Index, JSON, Integer, DateTime
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 from backend.models.base import Base, TimestampMixin, UUIDMixin
 from enum import Enum
 from typing import Optional, List, Dict, Any

@@ -7,7 +7,7 @@ from datetime import datetime
 
 from backend.core.database import get_db
 from backend.models.project import Project, ProjectStatus
-from backend.models.task import Task, TaskStatus
+from backend.models.task import Task
 
 router = APIRouter()
 

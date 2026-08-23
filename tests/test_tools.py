@@ -1,6 +1,6 @@
 import pytest
 from backend.tools import (
-    TOOL_REGISTRY, ToolChain, run_parallel, mode_allows_tool,
+    TOOL_REGISTRY, ToolChain, mode_allows_tool,
     ToolRiskLevel, _validate_command, _validate_path, PROJECT_ROOT,
 )
 
@@ -18,7 +18,6 @@ def test_tool_risk_levels(name, expected_risk):
 
 
 def test_command_sandbox_blocks_disallowed():
-    cmd = TOOL_REGISTRY["command"]
     assert _validate_command("rm -rf /") is not None
     assert _validate_command("sudo rm -rf") is not None
     assert _validate_command("") is not None
@@ -63,7 +62,7 @@ async def test_file_tool_read_write():
 @pytest.mark.asyncio
 async def test_file_tool_write():
     ft = TOOL_REGISTRY["file"]
-    import tempfile, os
+    import os
     tmp = str(PROJECT_ROOT / "_tool_write_test.tmp")
     try:
         r = await ft.execute(action="write", path=tmp, content="test content")

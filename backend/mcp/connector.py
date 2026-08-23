@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 from contextlib import AsyncExitStack
 from backend.mcp import (
     MCPServerConfig, TransportType, MCPResponse,
@@ -16,8 +16,6 @@ class MCPConnector:
 
     async def connect_stdio(self, config: MCPServerConfig) -> bool:
         from mcp.client.stdio import stdio_client
-        import subprocess
-        import shlex
 
         proc = await self._stack.enter_async_context(
             stdio_client(

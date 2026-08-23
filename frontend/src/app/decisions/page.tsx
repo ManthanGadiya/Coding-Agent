@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { ListSkeleton, CardSkeleton } from "@/components/ui";
+import { ListSkeleton } from "@/components/ui";
 
 export default function DecisionsPage() {
   const [tab, setTab] = useState<"history" | "decide" | "risk">("history");

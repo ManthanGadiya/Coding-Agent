@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { ListSkeleton, CardSkeleton } from "@/components/ui";
+import { ListSkeleton } from "@/components/ui";
 
 const CATEGORIES = ["sdlc", "feature", "bug_fix", "refactor", "release", "task_pipeline"];
 const COMPLEXITIES = ["simple", "moderate", "complex", "critical"];

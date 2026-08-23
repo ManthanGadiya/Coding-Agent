@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
@@ -348,7 +348,6 @@ class WebTool(BaseTool):
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        import httpx
         action = kwargs.get("action", "fetch")
         url = kwargs.get("url", "")
         query = kwargs.get("query", "")
@@ -365,6 +364,7 @@ class WebTool(BaseTool):
     async def _fetch(self, url: str) -> ToolResult:
         if not url:
             return ToolResult(success=False, error="No URL provided")
+        import httpx
         try:
             async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
                 resp = await client.get(url)
@@ -379,6 +379,7 @@ class WebTool(BaseTool):
     async def _search_web(self, query: str) -> ToolResult:
         if not query:
             return ToolResult(success=False, error="No search query")
+        import httpx
         try:
             async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
                 resp = await client.get("https://html.duckduckgo.com/html/",

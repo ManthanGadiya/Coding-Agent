@@ -1,5 +1,4 @@
 from typing import Dict, List, Optional
-from enum import Enum
 from datetime import datetime
 
 from backend.core.database import EngineSession
@@ -8,8 +7,6 @@ from backend.models.learning import (
     Lesson as LessonModel, LessonStatus, LessonScope,
     MetricSnapshot as MetricSnapshotModel,
     Proposal as ProposalModel,
-    KnowledgeArtifact as KnowledgeArtifactModel, ArtifactStatus,
-    CandidateRule as CandidateRuleModel,
 )
 
 

@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { ListSkeleton, Skeleton } from "@/components/ui";
+import { ListSkeleton } from "@/components/ui";
 
 const categoryColor: Record<string, string> = {
   architecture: "text-purple-400", decision: "text-blue-400", lesson: "text-green-400",

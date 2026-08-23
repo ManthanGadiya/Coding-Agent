@@ -1,13 +1,35 @@
 const BASE = "";
 
-async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${url}`, {
-    headers: { "Content-Type": "application/json", ...init?.headers },
-    ...init,
-  });
+type ApiErrorListener = (message: string) => void;
+const errorListeners = new Set<ApiErrorListener>();
+
+export function onApiError(listener: ApiErrorListener): () => void {
+  errorListeners.add(listener);
+  return () => { errorListeners.delete(listener); };
+}
+
+function reportApiError(message: string): void {
+  errorListeners.forEach((listener) => listener(message));
+}
+
+async function fetchJSON<T>(url: string, init?: RequestInit & { quiet?: boolean }): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${url}`, {
+      headers: { "Content-Type": "application/json", ...init?.headers },
+      ...init,
+    });
+  } catch {
+    if (!init?.quiet) {
+      reportApiError(`Cannot reach API (${url}) — is the backend running on port 8000?`);
+    }
+    throw new Error(`Network error calling ${url}`);
+  }
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`${res.status} ${res.statusText}: ${err.slice(0, 200)}`);
+    const message = `${res.status} ${res.statusText}: ${err.slice(0, 200)}`;
+    if (!init?.quiet && res.status >= 500) reportApiError(`${message} (${url})`);
+    throw new Error(message);
   }
   if (res.status === 204) return null as unknown as T;
   return res.json();
@@ -31,22 +53,10 @@ export const api = {
     runGoal: (goal: string, context?: Record<string, unknown>) =>
       fetchJSON<unknown>("/api/v1/agents/run-goal", { method: "POST", body: JSON.stringify({ goal, context }) }),
     registry: () => fetchJSON<unknown[]>("/api/v1/agents/registry/list"),
-    create: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/agents", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/agents/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    delete: (id: string) => fetchJSON<unknown>(`/api/v1/agents/${id}`, { method: "DELETE" }),
-    execute: (id: string, task: string) => fetchJSON<unknown>(`/api/v1/agents/${id}/execute`, { method: "POST", body: JSON.stringify({ task }) }),
-    managerInfo: () => fetchJSON<unknown>("/api/v1/agents/manager/info"),
-    managerRoute: (task: string) => fetchJSON<unknown>("/api/v1/agents/manager/route", { method: "POST", body: JSON.stringify({ task }) }),
-    managerWorkflow: (name: string) => fetchJSON<unknown>("/api/v1/agents/manager/workflow", { method: "POST", body: JSON.stringify({ name }) }),
     conflictResolve: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/agents/conflict/resolve", { method: "POST", body: JSON.stringify(data) }),
     conflictHistory: () => fetchJSON<unknown[]>("/api/v1/agents/conflict/history"),
-    commCheck: () => fetchJSON<unknown>("/api/v1/agents/communication/check"),
-    disagreementRecord: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/agents/disagreement/record", { method: "POST", body: JSON.stringify(data) }),
-    disagreementNotifications: () => fetchJSON<unknown[]>("/api/v1/agents/disagreement/notifications"),
-    disagreementAcknowledge: (id: string) => fetchJSON<unknown>(`/api/v1/agents/disagreement/acknowledge`, { method: "POST", body: JSON.stringify({ notification_id: id }) }),
     disagreementResolve: (id: string, resolution: string) => fetchJSON<unknown>(`/api/v1/agents/disagreement/${id}/resolve`, { method: "POST", body: JSON.stringify({ resolution }) }),
     disagreementUnresolved: () => fetchJSON<unknown[]>("/api/v1/agents/disagreement/unresolved"),
-    disagreementHistory: () => fetchJSON<unknown[]>("/api/v1/agents/disagreement/history"),
   },
 
   manager: {
@@ -56,21 +66,12 @@ export const api = {
   memory: {
     entries: (params?: string) => fetchJSON<unknown[]>(`/api/v1/memory/entries${params ? `?${params}` : ""}`),
     search: (q: string) => fetchJSON<unknown[]>(`/api/v1/memory/search?q=${encodeURIComponent(q)}`),
-    stats: () => fetchJSON<Record<string, unknown>>("/api/v1/memory/stats").catch(() => null),
-    global: (data?: Record<string, unknown>) => data
-      ? fetchJSON<unknown>("/api/v1/memory/global", { method: "POST", body: JSON.stringify(data) })
-      : fetchJSON<unknown[]>("/api/v1/memory/global"),
-    project: (id?: string, data?: Record<string, unknown>) => data
-      ? fetchJSON<unknown>("/api/v1/memory/project", { method: "POST", body: JSON.stringify({ project_id: id, ...data }) })
-      : fetchJSON<unknown[]>(`/api/v1/memory/project/${id}`),
+    stats: () => fetchJSON<Record<string, unknown>>("/api/v1/memory/stats", { quiet: true }).catch(() => null),
     createEntry: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/memory/entries", { method: "POST", body: JSON.stringify(data) }),
-    getEntry: (id: string) => fetchJSON<unknown>(`/api/v1/memory/entries/${id}`),
-    updateEntry: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/memory/entries/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     deleteEntry: (id: string) => fetchJSON<unknown>(`/api/v1/memory/entries/${id}`, { method: "DELETE" }),
     versions: (id: string) => fetchJSON<unknown[]>(`/api/v1/memory/entries/${id}/versions`),
     compress: (entryIds: string[]) => fetchJSON<unknown>("/api/v1/memory/compress", { method: "POST", body: JSON.stringify({ entry_ids: entryIds }) }),
     suggestCompress: () => fetchJSON<unknown>("/api/v1/memory/compress/suggest", { method: "POST" }),
-    retentionScore: (id: string) => fetchJSON<unknown>(`/api/v1/memory/retention/score/${id}`),
     stale: () => fetchJSON<unknown[]>("/api/v1/memory/retention/stale"),
     archivalCandidates: () => fetchJSON<unknown[]>("/api/v1/memory/retention/archival-candidates"),
     retentionHealth: () => fetchJSON<unknown>("/api/v1/memory/retention/health"),
@@ -83,10 +84,7 @@ export const api = {
     proposals: () => fetchJSON<unknown[]>("/api/v1/learning/proposals"),
     fiveWhys: (problem: string) => fetchJSON<unknown>("/api/v1/learning/five-whys", { method: "POST", body: JSON.stringify({ problem }) }),
     createLesson: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/learning/lessons", { method: "POST", body: JSON.stringify(data) }),
-    supersedeLesson: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/learning/lessons/${id}/supersede`, { method: "POST", body: JSON.stringify(data) }),
-    promoteLesson: (id: string, scope: string) => fetchJSON<unknown>(`/api/v1/learning/lessons/${id}/promote`, { method: "POST", body: JSON.stringify({ scope }) }),
     reviewProposal: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/learning/proposals/${id}/review`, { method: "POST", body: JSON.stringify(data) }),
-    observe: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/learning/knowledge/observe", { method: "POST", body: JSON.stringify(data) }),
     promoteKnowledge: () => fetchJSON<unknown>("/api/v1/learning/knowledge/promote", { method: "POST" }),
     artifacts: () => fetchJSON<unknown[]>("/api/v1/learning/knowledge/artifacts"),
     rulesPending: () => fetchJSON<unknown[]>("/api/v1/learning/knowledge/rules/pending"),
@@ -117,38 +115,23 @@ export const api = {
     create: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/workflows", { method: "POST", body: JSON.stringify(data) }),
     categories: () => fetchJSON<{categories: string[]}>("/api/v1/workflows/categories"),
     get: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/${id}`),
-    update: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/workflows/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    delete: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/${id}`, { method: "DELETE" }),
     execute: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/${id}/execute`, { method: "POST" }),
     pause: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/${id}/pause`, { method: "POST" }),
     resume: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/${id}/resume`, { method: "POST" }),
     qualityGate: (checks: unknown[]) => fetchJSON<unknown>("/api/v1/workflows/quality-gate", { method: "POST", body: JSON.stringify({ checks }) }),
-    completionCheck: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/workflows/completion-check", { method: "POST", body: JSON.stringify(data) }),
     recommend: (scope?: string, risk?: string) => fetchJSON<unknown>(`/api/v1/workflows/recommend?scope=${scope || "medium"}&risk=${risk || "low"}`),
   },
 
   autonomy: {
     mode: () => fetchJSON<{mode: string}>(`/api/v1/autonomy/mode`),
     setMode: (mode: string) => fetchJSON<{mode: string}>("/api/v1/autonomy/mode", { method: "POST", body: JSON.stringify({ mode }) }),
-    registry: () => fetchJSON<unknown[]>("/api/v1/autonomy/registry"),
-    audit: () => fetchJSON<unknown[]>("/api/v1/autonomy/audit"),
     check: (action: string, resource: string) =>
       fetchJSON<{allowed: boolean}>("/api/v1/autonomy/check", { method: "POST", body: JSON.stringify({ action, resource }) }),
-    capabilities: (role: string) => fetchJSON<unknown>(`/api/v1/autonomy/capabilities/${role}`),
-    requestTemp: (capability: string, reason: string) => fetchJSON<unknown>("/api/v1/autonomy/temporary/request", { method: "POST", body: JSON.stringify({ capability, reason }) }),
-    tempGrants: () => fetchJSON<unknown[]>("/api/v1/autonomy/temporary/grants"),
-    revokeExpired: () => fetchJSON<unknown>("/api/v1/autonomy/temporary/revoke-expired", { method: "POST" }),
-    grantSession: (capability: string) => fetchJSON<unknown>("/api/v1/autonomy/grant/session", { method: "POST", body: JSON.stringify({ capability }) }),
-    grantProject: (projectId: string, capability: string) => fetchJSON<unknown>("/api/v1/autonomy/grant/project", { method: "POST", body: JSON.stringify({ project_id: projectId, capability }) }),
-    revokeSession: (id: string) => fetchJSON<unknown>(`/api/v1/autonomy/revoke/session/${id}`, { method: "POST" }),
-    revokeProject: (id: string) => fetchJSON<unknown>(`/api/v1/autonomy/revoke/project/${id}`, { method: "POST" }),
   },
 
   llm: {
     models: () => fetchJSON<string[]>("/api/v1/llm/models"),
     select: (model: string) => fetchJSON<unknown>("/api/v1/llm/select", { method: "POST", body: JSON.stringify({ model }) }),
-    generate: (prompt: string) => fetchJSON<unknown>("/api/v1/llm/generate", { method: "POST", body: JSON.stringify({ prompt }) }),
-    stream: (prompt: string) => fetchJSON<unknown>("/api/v1/llm/stream", { method: "POST", body: JSON.stringify({ prompt }) }),
   },
 
   mcp: {
@@ -158,37 +141,24 @@ export const api = {
     remove: (name: string) => fetchJSON<unknown>(`/api/v1/mcp/servers/${encodeURIComponent(name)}`, { method: "DELETE" }),
     connect: (name: string) => fetchJSON<unknown>(`/api/v1/mcp/servers/${encodeURIComponent(name)}/connect`, { method: "POST" }),
     disconnect: (name: string) => fetchJSON<unknown>(`/api/v1/mcp/servers/${encodeURIComponent(name)}/disconnect`, { method: "POST" }),
-    tools: (name: string) => fetchJSON<unknown[]>(`/api/v1/mcp/servers/${encodeURIComponent(name)}/tools`),
-    allTools: () => fetchJSON<unknown[]>("/api/v1/mcp/tools"),
-    call: (server: string, tool: string, args: Record<string, unknown>) =>
-      fetchJSON<unknown>("/api/v1/mcp/call", { method: "POST", body: JSON.stringify({ server, tool, args }) }),
-    log: () => fetchJSON<unknown[]>("/api/v1/mcp/log"),
   },
 
   tools: {
     list: () => fetchJSON<unknown[]>("/api/v1/tools/list"),
     execute: (name: string, args: Record<string, unknown>) =>
       fetchJSON<unknown>("/api/v1/tools/execute", { method: "POST", body: JSON.stringify({ name, args }) }),
-    chain: (steps: unknown[]) =>
-      fetchJSON<unknown>("/api/v1/tools/chain", { method: "POST", body: JSON.stringify({ steps }) }),
-    parallel: (tool: string, paramsList: unknown[]) =>
-      fetchJSON<unknown[]>("/api/v1/tools/parallel", { method: "POST", body: JSON.stringify({ tool, params_list: paramsList }) }),
-    audit: () => fetchJSON<unknown[]>("/api/v1/tools/audit"),
   },
 
   skills: {
     list: () => fetchJSON<unknown[]>("/api/v1/skills/list"),
     execute: (name: string, args: Record<string, unknown>) =>
       fetchJSON<unknown>("/api/v1/skills/execute", { method: "POST", body: JSON.stringify({ name, args }) }),
-    log: () => fetchJSON<unknown[]>("/api/v1/skills/log"),
   },
 
   projects: {
     list: () => fetchJSON<{ projects: unknown[]; total: number }>("/api/v1/projects"),
     create: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/projects", { method: "POST", body: JSON.stringify(data) }),
     get: (id: string) => fetchJSON<unknown>(`/api/v1/projects/${id}`),
-    update: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    delete: (id: string) => fetchJSON<unknown>(`/api/v1/projects/${id}`, { method: "DELETE" }),
     stats: (id: string) => fetchJSON<unknown>(`/api/v1/projects/${id}/stats`),
   },
 
@@ -203,9 +173,6 @@ export const api = {
     deploy: (id: string) => fetchJSON<unknown>(`/api/v1/workflows/release/candidate/${id}/deploy`, { method: "POST" }),
     rollback: (id: string, reason?: string) =>
       fetchJSON<unknown>(`/api/v1/workflows/release/candidate/${id}/rollback${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`, { method: "POST" }),
-    strategies: () => fetchJSON<{strategies: string[]}>("/api/v1/workflows/release/strategies"),
-    selectStrategy: (id: string, strategy: string) =>
-      fetchJSON<unknown>(`/api/v1/workflows/release/candidate/${id}/strategy?strategy=${encodeURIComponent(strategy)}`, { method: "POST" }),
   },
 
   pipelines: {
@@ -231,17 +198,12 @@ export const api = {
     list: (params?: string) => fetchJSON<TaskResponse[]>(`/api/v1/tasks${params ? `?${params}` : ""}`),
     create: (data: { title: string; description?: string; task_type?: string }) => fetchJSON<TaskResponse>("/api/v1/tasks", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: TaskUpdate) => fetchJSON<TaskResponse>(`/api/v1/tasks/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    delete: (id: string) => fetchJSON<unknown>(`/api/v1/tasks/${id}`, { method: "DELETE" }),
-    logs: (id: string) => fetchJSON<unknown[]>(`/api/v1/tasks/${id}/logs`),
-    addLog: (id: string, entry: string) => fetchJSON<unknown>(`/api/v1/tasks/${id}/logs`, { method: "POST", body: JSON.stringify({ entry }) }),
-    classify: (id: string) => fetchJSON<unknown>(`/api/v1/tasks/${id}/classify`, { method: "POST" }),
   },
 
   users: {
     list: () => fetchJSON<{users: unknown[]}>("/api/v1/users"),
     create: (data: Record<string, unknown>) => fetchJSON<unknown>("/api/v1/users", { method: "POST", body: JSON.stringify(data) }),
     get: (id: string) => fetchJSON<unknown>(`/api/v1/users/${id}`),
-    update: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     goals: (id: string) => fetchJSON<{goals: unknown[]}>(`/api/v1/users/${id}/goals`),
     createGoal: (id: string, data: Record<string, unknown>) => fetchJSON<unknown>(`/api/v1/users/${id}/goals`, { method: "POST", body: JSON.stringify(data) }),
     updateGoal: (userId: string, goalId: string, data: Record<string, unknown>) =>

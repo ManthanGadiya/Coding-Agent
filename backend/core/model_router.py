@@ -1,7 +1,7 @@
 import httpx
 import time
 import json
-from typing import Optional, Dict, Any, AsyncGenerator
+from typing import Optional, Dict, AsyncGenerator
 from dataclasses import dataclass
 
 from backend.config.settings import get_settings

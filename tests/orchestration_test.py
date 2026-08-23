@@ -4,11 +4,11 @@ Tests actual async agent execution: task routing, multi-step workflows,
 cross-agent communication, error handling, state management.
 """
 
-import sys, os, asyncio, time
+import sys, os, asyncio
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from backend.agents.manager import ManagerAgent
-from backend.agents.base import AgentTask, AgentMessage, AgentState
+from backend.agents.base import AgentTask, AgentMessage
 
 passed = 0
 failed = 0
@@ -250,7 +250,6 @@ async def run_all():
         input_data={"spec": "simple"}
     )
     agent = mgr.agents["coder-1"]
-    state_before = agent.state.value
     result = await agent.execute_task(make_task)
     stats = agent.get_status()
     check("agent executes and reports success", result.success)

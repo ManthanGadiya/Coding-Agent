@@ -323,16 +323,16 @@ class ManagerAgent(BaseAgent):
             db.close()
 
     async def _execute_release(self, data: Dict) -> AgentResult:
-        from backend.core.release import release_engine, ReleaseType
+        from backend.core.release import release_engine
         version = data.get("version", "0.1.0")
         release_type = data.get("release_type", "patch")
         candidate = release_engine.create_candidate(version, release_type)
         if not candidate:
             return AgentResult(task_id="", success=False, error="Failed to create release candidate")
-        test_check = release_engine.set_check(candidate["id"], "tests_passed", True)
-        review_check = release_engine.set_check(candidate["id"], "review_passed", True)
-        qual_check = release_engine.set_check(candidate["id"], "quality_gate_passed", True)
-        appr = release_engine.approve_candidate(candidate["id"], data.get("approved_by", "manager"))
+        release_engine.set_check(candidate["id"], "tests_passed", True)
+        release_engine.set_check(candidate["id"], "review_passed", True)
+        release_engine.set_check(candidate["id"], "quality_gate_passed", True)
+        release_engine.approve_candidate(candidate["id"], data.get("approved_by", "manager"))
         deployed = release_engine.deploy(candidate["id"])
         if not deployed:
             return AgentResult(task_id="", success=False, error="Deploy failed", output=candidate)
@@ -635,7 +635,6 @@ class ManagerAgent(BaseAgent):
 
     def _assess_complexity(self, data: Dict) -> AgentResult:
         description = data.get("description", "")
-        lines = len(description.split("\n"))
         word_count = len(description.split())
 
         if word_count < 10:

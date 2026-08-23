@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from backend.decision_runtime.event_bus import event_bus, Event, EventPriority
-from backend.decision_runtime.environment_mode import mode_controller
 
 
 @dataclass

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 
-import { Skeleton, CardSkeleton } from "@/components/ui";
+import { Skeleton } from "@/components/ui";
 
 export default function Dashboard() {
   const [data, setData] = useState<{ orch: any; projects: any[]; tasks: any[]; mem: any }>({ orch: null, projects: [], tasks: [], mem: null });

@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 from enum import Enum
 from datetime import datetime
 from dataclasses import dataclass, field
-from backend.decision_runtime.event_bus import event_bus, Event, EventPriority
+from backend.decision_runtime.event_bus import event_bus, Event
 
 
 class RuntimeState(str, Enum):

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { CardSkeleton, ListSkeleton } from "@/components/ui";
+import { CardSkeleton } from "@/components/ui";
 
 const icons: Record<string, string> = {
   manager: "⧉", coder: "⊡", reviewer: "⊟", tester: "⊠",

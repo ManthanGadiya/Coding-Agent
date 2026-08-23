@@ -17,13 +17,32 @@ export default function ToolsPage() {
     api.skills.list().then((d: any) => setSkills(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
+  function parseArgs(raw: string): Record<string, unknown> | null {
+    try {
+      const parsed = JSON.parse(raw || "{}");
+      return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
   function runTool() {
     setResult(null);
-    api.tools.execute(toolName, JSON.parse(toolArgs || "{}")).then(setResult).catch((e) => setResult({ error: e.message }));
+    const args = parseArgs(toolArgs);
+    if (args === null) {
+      setResult({ error: "Invalid JSON in arguments field" });
+      return;
+    }
+    api.tools.execute(toolName, args).then(setResult).catch((e) => setResult({ error: e.message }));
   }
   function runSkill() {
     setResult(null);
-    api.skills.execute(skillName, JSON.parse(skillArgs || "{}")).then(setResult).catch((e) => setResult({ error: e.message }));
+    const args = parseArgs(skillArgs);
+    if (args === null) {
+      setResult({ error: "Invalid JSON in arguments field" });
+      return;
+    }
+    api.skills.execute(skillName, args).then(setResult).catch((e) => setResult({ error: e.message }));
   }
 
   return (

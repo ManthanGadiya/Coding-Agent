@@ -1,7 +1,7 @@
-from typing import Any, Dict, List, Optional
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+from dataclasses import dataclass
 
-from backend.decision_runtime.registries import agent_registry, AgentCapability
+from backend.decision_runtime.registries import agent_registry
 from backend.decision_runtime.task_classifier import TaskType
 
 

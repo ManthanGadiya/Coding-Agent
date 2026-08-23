@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Dict, Any
@@ -8,7 +8,7 @@ import uuid
 
 from backend.core.database import get_db
 from backend.models.agent import Agent, AgentType, AgentStatus
-from backend.agents import AGENT_REGISTRY, create_agent, get_manager
+from backend.agents import AGENT_REGISTRY, get_manager
 from backend.core.disagreement import disagreement_engine
 
 router = APIRouter()

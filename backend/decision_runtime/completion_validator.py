@@ -1,6 +1,6 @@
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 from enum import Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from backend.decision_runtime.event_bus import event_bus, Event, EventPriority
 
