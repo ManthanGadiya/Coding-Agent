@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { use } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import type { AgentInfo, ManagerStatusResponse, TaskResponse } from "@/lib/api";
+
+type ProfileSummary = { architecture_decisions?: number; known_patterns?: number; interaction_count?: number; last_active?: string };
+type AgentDetailInfo = AgentInfo & { status?: string; permissions?: string[] };
 
 const icons: Record<string, string> = {
   "manager": "⧉", "coder": "⊡", "reviewer": "⊟",
@@ -13,14 +17,14 @@ const icons: Record<string, string> = {
 
 export default function AgentDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [data, setData] = useState<{ agent: any; runtime: any; profile: any; tasks: any[]; loading: boolean }>({ agent: null, runtime: null, profile: null, tasks: [], loading: true });
+  const [data, setData] = useState<{ agent: AgentDetailInfo | null; runtime: ManagerStatusResponse | null; profile: ProfileSummary | null; tasks: TaskResponse[]; loading: boolean }>({ agent: null, runtime: null, profile: null, tasks: [], loading: true });
 
   useEffect(() => {
     Promise.all([
       api.agents.get(id).catch(() => null),
       api.agents.status(id).catch(() => null),
-      api.memoryRetrieval.profile(id.replace("-1", "")).then((p: any) => p?.profile ?? null).catch(() => null),
-      api.tasks.list(`assigned_agent=${id}`).then((d: any) => Array.isArray(d) ? d : d.tasks ?? []).catch(() => []),
+      api.memoryRetrieval.profile(id.replace("-1", "")).then((p) => (p?.profile ?? null) as ProfileSummary | null).catch(() => null),
+      api.tasks.list(`assigned_agent=${id}`).then((d: TaskResponse[] | { tasks?: TaskResponse[] }) => Array.isArray(d) ? d : d.tasks ?? []).catch(() => []),
     ]).then(([a, r, p, t]) => {
       setData({ agent: a, runtime: r, profile: p, tasks: t, loading: false });
     });
@@ -136,7 +140,7 @@ export default function AgentDetail({ params }: { params: Promise<{ id: string }
             <h2 className="text-sm font-semibold">Tasks</h2>
           </div>
           <div className="divide-y divide-border">
-            {data.tasks.map((t: any) => (
+            {data.tasks.map((t) => (
               <div key={t.id} className="flex items-center gap-4 px-5 py-3.5">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{t.title}</div>

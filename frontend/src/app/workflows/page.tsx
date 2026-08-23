@@ -1,21 +1,28 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import type { ExecutorInstance, WorkflowDef, WorkflowStep } from "@/lib/api";
 import { ListSkeleton } from "@/components/ui";
+
+type BlueprintStep = WorkflowStep & { agent?: string; description?: string };
+type BlueprintDef = WorkflowDef & { requires_approval?: boolean; quality_gates?: string[]; steps?: BlueprintStep[] };
+type WfRow = WorkflowDef & { current_step?: number; total_steps?: number; assigned_agents?: string[] };
+type InstStep = { name?: string; step_name?: string; status?: string; attempts?: number; error?: string };
+type InstRow = ExecutorInstance & { steps?: InstStep[]; steps_completed?: number | string };
 
 const CATEGORIES = ["sdlc", "feature", "bug_fix", "refactor", "release", "task_pipeline"];
 const COMPLEXITIES = ["simple", "moderate", "complex", "critical"];
 const WORKFLOW_TYPES = ["simple", "moderate", "complex", "critical", "feature_development", "bug_fixing", "release", "refactoring"];
 
 export default function WorkflowsPage() {
-  const [ui, setUi] = useState<{tab: "blueprint" | "list" | "executor"; cat: string; complexity: string; blueprint: any; workflows: any[]}>({tab: "blueprint", cat: "feature", complexity: "moderate", blueprint: null, workflows: []});
-  const [classify, setClassify] = useState<{input: {scope: string; risk: string; deps: number; arch: boolean; sec: boolean; research: boolean}; result: any}>({input: {scope: "medium", risk: "medium", deps: 0, arch: false, sec: false, research: false}, result: null});
-  const [execInstances, setExecInstances] = useState<any[]>([]);
-  const [selectedInst, setSelectedInst] = useState<any>(null);
+  const [ui, setUi] = useState<{tab: "blueprint" | "list" | "executor"; cat: string; complexity: string; blueprint: BlueprintDef | null; workflows: WfRow[]}>({tab: "blueprint", cat: "feature", complexity: "moderate", blueprint: null, workflows: []});
+  const [classify, setClassify] = useState<{input: {scope: string; risk: string; deps: number; arch: boolean; sec: boolean; research: boolean}; result: Record<string, unknown> | null}>({input: {scope: "medium", risk: "medium", deps: 0, arch: false, sec: false, research: false}, result: null});
+  const [execInstances, setExecInstances] = useState<InstRow[]>([]);
+  const [selectedInst, setSelectedInst] = useState<InstRow | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [createWf, setCreateWf] = useState<{show: boolean; name: string; wfType: string; description: string; error: string}>({show: false, name: "", wfType: "feature_development", description: "", error: ""});
-  const [qualityGate, setQualityGate] = useState<{checks: string[]; input: string; result: any}>({checks: [], input: "", result: null});
-  const [selectedWf, setSelectedWf] = useState<any>(null);
+  const [qualityGate, setQualityGate] = useState<{checks: string[]; input: string; result: Record<string, unknown> | null}>({checks: [], input: "", result: null});
+  const [selectedWf, setSelectedWf] = useState<WfRow | null>(null);
   const [loaded, setLoaded] = useState({workflows: false, exec: false, categories: false});
 
   useEffect(() => { api.workflows.list().then((d) => setUi(p => ({...p, workflows: d}))).catch(() => {}).finally(() => setLoaded(l => ({...l, workflows: true}))); }, []);
@@ -110,9 +117,9 @@ export default function WorkflowsPage() {
                 <span className="px-2 py-0.5 rounded text-xs font-mono bg-surface">{ui.blueprint.complexity}</span>
                 {ui.blueprint.requires_approval && <span className="px-2 py-0.5 rounded text-xs font-mono bg-orange-500/10 text-orange-500">requires approval</span>}
               </div>
-              <div className="relative">{ui.blueprint.steps?.map((s: any, i: number) => (
+              <div className="relative">{(ui.blueprint?.steps as BlueprintStep[] | undefined)?.map((s, i) => (
                 <div key={s.name} className="flex gap-4 pb-4 relative">
-                  {i < ui.blueprint.steps.length - 1 && <div className="absolute left-[11px] top-6 bottom-0 w-px bg-border" />}
+                  {i < ((ui.blueprint?.steps as BlueprintStep[] | undefined)?.length ?? 0) - 1 && <div className="absolute left-[11px] top-6 bottom-0 w-px bg-border" />}
                   <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center shrink-0 mt-0.5"><div className="w-2 h-2 rounded-full bg-accent" /></div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -123,10 +130,10 @@ export default function WorkflowsPage() {
                   </div>
                 </div>
               ))}</div>
-              {ui.blueprint.quality_gates?.length > 0 && (
+              {ui.blueprint.quality_gates && ui.blueprint.quality_gates.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="text-xs text-muted mb-2">Quality gates</div>
-                  <div className="flex flex-wrap gap-2">{ui.blueprint.quality_gates.map((g: string) => (
+                  <div className="flex flex-wrap gap-2">{ui.blueprint.quality_gates.map((g) => (
                     <span key={g} className="px-2 py-1 bg-surface rounded text-xs text-muted">{g}</span>
                   ))}</div>
                 </div>
@@ -152,7 +159,7 @@ export default function WorkflowsPage() {
               <input type="number" value={classify.input.deps} onChange={(e) => setClassify(p => ({...p, input: {...p.input, deps: +e.target.value}}))} placeholder="Dependencies" aria-label="Dependencies" className="w-32 bg-surface border border-border rounded-lg px-3 py-2 text-sm" />
               <button type="button" onClick={runClassify} className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">Classify</button>
             </div>
-            {classify.result && <div className="mt-3 text-sm">Complexity: <span className="font-mono font-bold text-accent">{classify.result.complexity}</span></div>}
+            {classify.result && <div className="mt-3 text-sm">Complexity: <span className="font-mono font-bold text-accent">{String(classify.result.complexity ?? "")}</span></div>}
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5">
@@ -213,28 +220,28 @@ export default function WorkflowsPage() {
               {selectedInst.steps && (
                 <div className="space-y-2 mb-3">
                   <div className="text-xs text-muted">Steps</div>
-                  {selectedInst.steps.map((s: any, i: number) => (
+                  {selectedInst.steps.map((s, i) => (
                     <div key={s.name ?? s.step_name ?? i} className="flex items-center gap-3 bg-surface rounded-lg px-3 py-2">
                       <div className={`w-2 h-2 rounded-full ${s.status === "completed" ? "bg-success" : s.status === "failed" ? "bg-red-500" : s.status === "running" ? "bg-accent animate-pulse" : "bg-yellow-500"}`} />
                       <span className="text-xs font-mono flex-1">{s.name ?? s.step_name ?? `step-${i}`}</span>
-                {s.attempts > 1 && <span className="text-[10px] text-muted">retry {s.attempts}</span>}
+                {(s.attempts ?? 0) > 1 && <span className="text-[10px] text-muted">retry {s.attempts}</span>}
                 {s.error && <span className="text-[10px] text-red-400 truncate max-w-[200px]" title={s.error}>{s.error}</span>}
               </div>
             ))}
           </div>
         )}
         <div className="flex gap-2">
-          {selectedInst.status === "running" && <button type="button" onClick={() => execAction(selectedInst.instance_id, "pause")} className="px-3 py-1.5 bg-yellow-500/10 text-yellow-500 rounded-lg text-xs font-medium">Pause</button>}
-          {selectedInst.status === "paused" && <button type="button" onClick={() => execAction(selectedInst.instance_id, "resume")} className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Resume</button>}
-          {(selectedInst.status === "running" || selectedInst.status === "paused") && <button type="button" onClick={() => execAction(selectedInst.instance_id, "cancel")} className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-xs font-medium">Cancel</button>}
+          {selectedInst.status === "running" && <button type="button" onClick={() => execAction(selectedInst.instance_id ?? "", "pause")} className="px-3 py-1.5 bg-yellow-500/10 text-yellow-500 rounded-lg text-xs font-medium">Pause</button>}
+          {selectedInst.status === "paused" && <button type="button" onClick={() => execAction(selectedInst.instance_id ?? "", "resume")} className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Resume</button>}
+          {(selectedInst.status === "running" || selectedInst.status === "paused") && <button type="button" onClick={() => execAction(selectedInst.instance_id ?? "", "cancel")} className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-xs font-medium">Cancel</button>}
         </div>
             </div>
           )}
           {execInstances.length === 0 && !selectedInst && (
             loaded.exec ? <p className="text-sm text-muted py-8 text-center">No executor instances. Run a workflow to see instances here.</p> : <ListSkeleton rows={2} />
           )}
-          {execInstances.map((inst: any) => (
-            <button type="button" className="w-full text-left bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors" onClick={() => loadExecDetail(inst.instance_id)}>
+          {execInstances.map((inst, ii) => (
+            <button type="button" key={inst.instance_id ?? ii} className="w-full text-left bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors" onClick={() => loadExecDetail(inst.instance_id ?? "")}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-mono truncate flex-1">{inst.instance_id}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-mono ${inst.status === "completed" ? "bg-success/10 text-success" : inst.status === "running" ? "bg-accent/10 text-accent" : inst.status === "failed" ? "bg-red-500/10 text-red-500" : inst.status === "cancelled" ? "bg-muted/10 text-muted" : "bg-yellow-500/10 text-yellow-500"}`}>{inst.status}</span>
@@ -290,18 +297,18 @@ export default function WorkflowsPage() {
               {selectedWf.description && <p className="text-sm text-muted mb-3">{selectedWf.description}</p>}
               <div className="flex gap-2">
                 {selectedWf.status !== "running" && selectedWf.status !== "completed" && (
-                  <button type="button" onClick={() => wfAction(selectedWf.id, "execute")} className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Execute</button>
+                  <button type="button" onClick={() => wfAction(selectedWf.id ?? "", "execute")} className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Execute</button>
                 )}
-                {selectedWf.status === "running" && <button type="button" onClick={() => wfAction(selectedWf.id, "pause")} className="px-3 py-1.5 bg-yellow-500/10 text-yellow-500 rounded-lg text-xs font-medium">Pause</button>}
-                {selectedWf.status === "paused" && <button type="button" onClick={() => wfAction(selectedWf.id, "resume")} className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Resume</button>}
+                {selectedWf.status === "running" && <button type="button" onClick={() => wfAction(selectedWf.id ?? "", "pause")} className="px-3 py-1.5 bg-yellow-500/10 text-yellow-500 rounded-lg text-xs font-medium">Pause</button>}
+                {selectedWf.status === "paused" && <button type="button" onClick={() => wfAction(selectedWf.id ?? "", "resume")} className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Resume</button>}
               </div>
             </div>
           )}
           {ui.workflows.length === 0 && !selectedWf && (
             loaded.workflows ? <p className="text-sm text-muted py-8 text-center">No workflows yet. Create one above or generate a blueprint.</p> : <ListSkeleton rows={3} />
           )}
-          {ui.workflows.map((wf: any) => (
-            <button type="button" className="w-full text-left bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors" onClick={() => loadWfDetail(wf.id)}>
+          {ui.workflows.map((wf, wi) => (
+            <button type="button" key={wf.id ?? wi} className="w-full text-left bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors" onClick={() => loadWfDetail(wf.id ?? "")}>
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <span className="text-sm font-medium">{wf.name}</span>

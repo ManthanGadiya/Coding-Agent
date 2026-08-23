@@ -1,17 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import type { PipelineInstance, ReleaseCandidate } from "@/lib/api";
+
+type PipeRow = PipelineInstance & { state?: string; current_step?: number; total_steps?: number; steps?: string[] };
 
 export default function ReleasesPage() {
   const [tab, setTab] = useState<"pipeline" | "release">("pipeline");
-  const [pipelines, setPipelines] = useState<any[]>([]);
-  const [selectedPipe, setSelectedPipe] = useState<any>(null);
+  const [pipelines, setPipelines] = useState<PipeRow[]>([]);
+  const [selectedPipe, setSelectedPipe] = useState<PipeRow | null>(null);
   const [pipeCategory, setPipeCategory] = useState("feature");
   const [pipeComplexity, setPipeComplexity] = useState("moderate");
-  const [candidates, setCandidates] = useState<any[]>([]);
+  const [candidates, setCandidates] = useState<ReleaseCandidate[]>([]);
   const [version, setVersion] = useState("");
   const [relType, setRelType] = useState("patch");
-  const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<ReleaseCandidate | null>(null);
   const [checkName, setCheckName] = useState("");
 
   useEffect(() => { api.pipelines.listActive().then((d) => setPipelines(d.pipelines)).catch(() => {}); }, []);
@@ -29,19 +32,19 @@ export default function ReleasesPage() {
   function rollbackPipe(id: string) { api.pipelines.rollback(id).then(() => loadPipe(id)).catch(() => {}); }
 
   function createCandidate() {
-    api.releases.candidate(version, relType).then((rc: any) => {
+    api.releases.candidate(version, relType).then((rc) => {
       setCandidates((prev) => [...prev, rc]); setSelectedCandidate(rc); setVersion("");
     }).catch(() => {});
   }
   function loadCandidate(id: string) { api.releases.getCandidate(id).then(setSelectedCandidate).catch(() => {}); }
   function setCheck() {
     if (!selectedCandidate || !checkName) return;
-    api.releases.setCheck(selectedCandidate.id, checkName, true).then(() => loadCandidate(selectedCandidate.id)).catch(() => {});
+    api.releases.setCheck(selectedCandidate.id ?? "", checkName, true).then(() => loadCandidate(selectedCandidate.id ?? "")).catch(() => {});
     setCheckName("");
   }
-  function approveCandidate() { api.releases.approve(selectedCandidate.id, "manager").then(() => loadCandidate(selectedCandidate.id)).catch(() => {}); }
-  function deployCandidate() { api.releases.deploy(selectedCandidate.id).then(() => loadCandidate(selectedCandidate.id)).catch(() => {}); }
-  function rollbackCandidate() { api.releases.rollback(selectedCandidate.id, "manual").then(() => loadCandidate(selectedCandidate.id)).catch(() => {}); }
+  function approveCandidate() { api.releases.approve(selectedCandidate?.id ?? "", "manager").then(() => loadCandidate(selectedCandidate?.id ?? "")).catch(() => {}); }
+  function deployCandidate() { api.releases.deploy(selectedCandidate?.id ?? "").then(() => loadCandidate(selectedCandidate?.id ?? "")).catch(() => {}); }
+  function rollbackCandidate() { api.releases.rollback(selectedCandidate?.id ?? "", "manual").then(() => loadCandidate(selectedCandidate?.id ?? "")).catch(() => {}); }
 
   return (
     <div className="space-y-8">
@@ -104,7 +107,7 @@ export default function ReleasesPage() {
 
               {selectedPipe.steps && (
                 <div className="space-y-1 mb-3">
-                  {selectedPipe.steps.map((s: any, i: number) => (
+                  {selectedPipe.steps.map((s, i) => (
                     <div key={s ?? i} className="text-xs font-mono bg-surface rounded px-3 py-1.5">{s}</div>
                   ))}
                 </div>
@@ -112,23 +115,23 @@ export default function ReleasesPage() {
 
               <div className="flex gap-2">
                 {selectedPipe.state === "running" && (
-                  <button type="button" onClick={() => transitionPipe(selectedPipe.id, "completed")}
+                  <button type="button" onClick={() => transitionPipe(selectedPipe.id ?? "", "completed")}
                     className="px-3 py-1.5 bg-success/10 text-success rounded-lg text-xs font-medium">Complete Step</button>
                 )}
                 {selectedPipe.state !== "blocked" && selectedPipe.state !== "completed" && (
-                  <button type="button" onClick={() => unblockPipe(selectedPipe.id)}
+                  <button type="button" onClick={() => unblockPipe(selectedPipe.id ?? "")}
                     className="px-3 py-1.5 bg-yellow-500/10 text-yellow-500 rounded-lg text-xs font-medium">Unblock</button>
                 )}
-                {selectedPipe.current_step > 0 && (
-                  <button type="button" onClick={() => rollbackPipe(selectedPipe.id)}
+                {(selectedPipe.current_step ?? 0) > 0 && (
+                  <button type="button" onClick={() => rollbackPipe(selectedPipe.id ?? "")}
                     className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-xs font-medium">Rollback</button>
                 )}
               </div>
             </div>
           )}
 
-          {pipelines.map((p: any) => (
-            <button type="button" className="w-full text-left bg-card border border-border rounded-xl p-4 hover:border-accent/30" onClick={() => loadPipe(p.id)}>
+          {pipelines.map((p, pi) => (
+            <button type="button" key={p.id ?? pi} className="w-full text-left bg-card border border-border rounded-xl p-4 hover:border-accent/30" onClick={() => loadPipe(p.id ?? "")}>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-mono">{p.id}</span>
                 <div className="flex gap-3 text-[10px] text-muted font-mono">

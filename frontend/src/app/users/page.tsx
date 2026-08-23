@@ -1,22 +1,25 @@
 "use client";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, UserRecord } from "@/lib/api";
 import Link from "next/link";
 import { ListSkeleton } from "@/components/ui";
 
+type UsersPayload = { users?: UserRecord[] } | UserRecord[];
+type UserSummary = UserRecord & { goals_count?: number };
+
 export default function UsersPage() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserSummary[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: "" });
   const [load, setLoad] = useState(true);
 
-  useEffect(() => { api.users.list().then((d: any) => setUsers(Array.isArray(d) ? d : d.users ?? [])).catch(() => {}).finally(() => setLoad(false)); }, []);
+  useEffect(() => { api.users.list().then((d) => { const l = d as UsersPayload; setUsers(Array.isArray(l) ? l : l.users ?? []); }).catch(() => {}).finally(() => setLoad(false)); }, []);
 
   function create() {
     if (!form.name.trim()) return;
     api.users.create({ username: form.name.trim() }).then(() => {
       setForm({ name: "" }); setShowCreate(false);
-      api.users.list().then((d: any) => setUsers(Array.isArray(d) ? d : d.users ?? [])).catch(() => {});
+      api.users.list().then((d) => { const l = d as UsersPayload; setUsers(Array.isArray(l) ? l : l.users ?? []); }).catch(() => {});
     }).catch(() => {});
   }
 
@@ -44,7 +47,7 @@ export default function UsersPage() {
         <p className="text-sm text-muted text-center py-8">No users registered. Create your first user above.</p>
       ) : (
         <div className="grid gap-3">
-          {users.map((u: any) => (
+          {users.map((u) => (
             <Link key={u.id} href={`/users/${u.id}`} className="bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors block">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

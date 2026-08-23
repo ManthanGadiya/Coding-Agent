@@ -2,15 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import type { AgentProfile, RetrievalResult } from "@/lib/api";
 
 const AGENTS = ["manager", "architect", "planner", "coder", "tester", "debugger", "reviewer", "memory"];
 const MODES = ["planning", "architecture", "implementation", "testing", "debugging", "review", "learning", "research", "optimization"];
 
+type MemoryHit = RetrievalResult & { tags?: string[]; factors?: Record<string, number> };
+
+type RetrieveResponse = {
+  memories: MemoryHit[];
+  confidence: number;
+  contradictions?: unknown[];
+  summary?: string;
+};
+
 export default function MemoryRetrievalPage() {
   const [params, setParams] = useState({ query: "", agent: "", mode: "", complexity: "moderate" });
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<RetrieveResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [profiles, setProfiles] = useState<any>({});
+  const [profiles, setProfiles] = useState<Record<string, AgentProfile>>({});
 
   useEffect(() => { api.memoryRetrieval.profiles().then(setProfiles).catch(() => {}); }, []);
 
@@ -18,7 +28,7 @@ export default function MemoryRetrievalPage() {
     setLoading(true);
     try {
       const r = await api.memoryRetrieval.retrieve({ query: params.query, agent: params.agent, mode: params.mode, task_complexity: params.complexity });
-      setResult(r);
+      setResult({ memories: (r.memories ?? []) as MemoryHit[], confidence: r.confidence ?? 0, contradictions: r.contradictions, summary: r.summary });
     } catch { setResult(null); }
     setLoading(false);
   }
@@ -84,21 +94,21 @@ export default function MemoryRetrievalPage() {
             </div>
           )}
 
-          {result.memories.map((m: any) => (
+          {result.memories.map((m) => (
             <div key={m.id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-mono text-muted">{m.id}</span>
                 <span className="text-xs font-mono text-accent">score: {m.score}</span>
               </div>
               <p className="text-sm">{m.content}</p>
-              {m.tags?.length > 0 && (
+              {m.tags && m.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {m.tags.map((t: string) => <span key={t} className="px-2 py-0.5 bg-surface rounded text-xs text-muted">{t}</span>)}
+                  {m.tags.map((t) => <span key={t} className="px-2 py-0.5 bg-surface rounded text-xs text-muted">{t}</span>)}
                 </div>
               )}
               {m.factors && (
                 <div className="flex flex-wrap gap-2 mt-2 text-[10px] font-mono text-muted">
-                  {Object.entries(m.factors).map(([k, v]: [string, any]) => (
+                  {Object.entries(m.factors).map(([k, v]) => (
                     <span key={k}>{k}: {v}</span>
                   ))}
                 </div>
@@ -112,11 +122,11 @@ export default function MemoryRetrievalPage() {
         <div className="bg-card border border-border rounded-xl p-5 animate-in">
           <h2 className="text-sm font-semibold mb-3">Agent Profiles</h2>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            {Object.entries(profiles).map(([agent, prefs]: [string, any]) => (
+            {Object.entries(profiles).map(([agent, prefs]) => (
               <div key={agent} className="bg-surface rounded-lg p-3">
                 <div className="font-medium mb-1 text-accent">{agent}</div>
-                {Object.entries(prefs).map(([k, v]: [string, any]) => (
-                  <div key={k} className="flex justify-between"><span className="text-muted">{k}</span><span className="font-mono">{v}</span></div>
+                {Object.entries(prefs).map(([k, v]) => (
+                  <div key={k} className="flex justify-between"><span className="text-muted">{k}</span><span className="font-mono">{String(v ?? "")}</span></div>
                 ))}
               </div>
             ))}

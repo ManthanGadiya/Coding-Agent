@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, TaskResponse } from "@/lib/api";
 
+type TasksPayload = { tasks?: TaskResponse[] } | TaskResponse[];
+
 const badge = (s: string) => {
   const m: Record<string, string> = {
     pending: "bg-muted/10 text-muted",
@@ -45,14 +47,14 @@ export default function Tasks() {
     try {
       const f = filterValue ?? data.filter;
       const params = f ? `status=${f}` : "";
-      const d: any = await api.tasks.list(params);
+      const d = await api.tasks.list(params) as TasksPayload;
       setData(x => ({...x, tasks: Array.isArray(d) ? d : d.tasks ?? []}));
     } catch { setData(d => ({...d, tasks: []})); }
     finally { setData(d => ({...d, loading: false})); }
   }, [data.filter]);
 
-  const loadRef = useRef(loadTasks);
-  loadRef.current = loadTasks;
+  const loadRef = useRef<() => void>(() => {});
+  useEffect(() => { loadRef.current = loadTasks; });
   useEffect(() => { loadRef.current(); }, []);
 
   async function toggleStatus(t: TaskResponse) {

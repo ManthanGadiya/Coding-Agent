@@ -2,7 +2,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import type { AgentInfo, ConflictRecord, DisagreementRecord, ManagerStatusResponse, RegistryEntry } from "@/lib/api";
 import { CardSkeleton } from "@/components/ui";
+
+type RegistryRow = RegistryEntry & { agent_id?: string; id?: string; type?: string };
+type ConflictRow = ConflictRecord & { conflict_id?: string; resolved?: boolean; description?: string; details?: string; topic?: string; agents?: string[] };
+type DisagreementRow = DisagreementRecord & { notification_id?: string; message?: string; description?: string };
+type AgentCard = { id: string; name: string; type: string; status: string; tasks: number; icon: string; capabilities: string[] };
 
 const icons: Record<string, string> = {
   manager: "⧉", coder: "⊡", reviewer: "⊟", tester: "⊠",
@@ -10,17 +16,17 @@ const icons: Record<string, string> = {
 };
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<any[]>([]);
+  const [agents, setAgents] = useState<AgentCard[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<"agents" | "registry" | "conflicts" | "disagreements">("agents");
-  const [registry, setRegistry] = useState<any[]>([]);
-  const [conflicts, setConflicts] = useState<any[]>([]);
-  const [disagreements, setDisagreements] = useState<any[]>([]);
+  const [registry, setRegistry] = useState<RegistryRow[]>([]);
+  const [conflicts, setConflicts] = useState<ConflictRow[]>([]);
+  const [disagreements, setDisagreements] = useState<DisagreementRow[]>([]);
   const [resInput, setResInput] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    api.manager.status().then((d: any) => {
-      const list = Object.entries(d.agents ?? {}).map(([id, a]: any) => ({
+    api.manager.status().then((d: ManagerStatusResponse & { agents?: Record<string, AgentInfo> }) => {
+      const list = Object.entries(d.agents ?? {}).map(([id, a]) => ({
         id, name: id.replace("-1", "").replace(/^\w/, (c: string) => c.toUpperCase()),
         type: (a.capabilities ?? [])[0] ?? "general", status: a.state ?? "idle",
         tasks: (a.tasks_completed ?? 0) + (a.tasks_failed ?? 0),
@@ -31,19 +37,19 @@ export default function AgentsPage() {
   }, []);
 
   function loadRegistry() {
-    api.agents.registry().then((d: any) => setRegistry(Array.isArray(d) ? d : d.agent_types ?? [])).catch(() => {});
-    api.agents.conflictHistory().then((d: any) => setConflicts(Array.isArray(d) ? d : d.conflicts ?? [])).catch(() => {});
-    api.agents.disagreementUnresolved().then((d: any) => setDisagreements(Array.isArray(d) ? d : d.disagreements ?? [])).catch(() => {});
+    api.agents.registry().then((d: RegistryRow[] | { agent_types?: RegistryRow[] }) => setRegistry(Array.isArray(d) ? d : d.agent_types ?? [])).catch(() => {});
+    api.agents.conflictHistory().then((d: ConflictRow[] | { conflicts?: ConflictRow[] }) => setConflicts(Array.isArray(d) ? d : d.conflicts ?? [])).catch(() => {});
+    api.agents.disagreementUnresolved().then((d: DisagreementRow[] | { disagreements?: DisagreementRow[] }) => setDisagreements(Array.isArray(d) ? d : d.disagreements ?? [])).catch(() => {});
   }
 
   function resolveConflict(data: Record<string, unknown>) {
-    api.agents.conflictResolve(data).then(() => api.agents.conflictHistory().then((d: any) => setConflicts(Array.isArray(d) ? d : d.conflicts ?? []))).catch(() => {});
+    api.agents.conflictResolve(data).then(() => api.agents.conflictHistory().then((d: ConflictRow[] | { conflicts?: ConflictRow[] }) => setConflicts(Array.isArray(d) ? d : d.conflicts ?? []))).catch(() => {});
   }
 
   function resolveDisagreement(id: string) {
     const resolution = resInput[id] || "auto-resolved";
     api.agents.disagreementResolve(id, resolution).then(() => {
-      api.agents.disagreementUnresolved().then((d: any) => setDisagreements(Array.isArray(d) ? d : d.disagreements ?? [])).catch(() => {});
+      api.agents.disagreementUnresolved().then((d: DisagreementRow[] | { disagreements?: DisagreementRow[] }) => setDisagreements(Array.isArray(d) ? d : d.disagreements ?? [])).catch(() => {});
       setResInput(r => { const n = {...r}; delete n[id]; return n; });
     }).catch(() => {});
   }
@@ -84,13 +90,13 @@ export default function AgentsPage() {
         <div className="space-y-3 animate-in">
           {registry.length === 0 ? <p className="text-sm text-muted py-8 text-center">No registry entries. Run the agent manager to populate the registry.</p> : (
             <div className="bg-card border border-border rounded-xl divide-y divide-border">
-              {registry.map((r: any) => (
+              {registry.map((r) => (
                 <div key={r.agent_id || r.id} className="px-5 py-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-mono text-accent">{r.agent_id || r.name}</span>
                     <span className="text-[10px] text-muted font-mono">{r.type || r.agent_type}</span>
                   </div>
-                  {r.capabilities?.length > 0 && (
+                  {(r.capabilities?.length ?? 0) > 0 && (
                     <div className="flex gap-1 mt-2 flex-wrap">
                       {(r.capabilities || []).slice(0, 5).map((c: string) => (
                         <span key={c} className="text-[10px] bg-surface rounded px-1.5 py-0.5 font-mono text-muted">{c}</span>
@@ -108,7 +114,7 @@ export default function AgentsPage() {
         <div className="space-y-3 animate-in">
           {conflicts.length === 0 ? <p className="text-sm text-muted">No conflict history.</p> : (
             <div className="bg-card border border-border rounded-xl divide-y divide-border">
-              {conflicts.map((c: any) => (
+              {conflicts.map((c) => (
                 <div key={c.conflict_id || c.id} className="px-5 py-4">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-mono text-muted">{c.conflict_id || c.id}</span>
@@ -129,7 +135,7 @@ export default function AgentsPage() {
       {tab === "disagreements" && (
         <div className="space-y-3 animate-in">
           {disagreements.length === 0 ? <p className="text-sm text-muted">No unresolved disagreements.</p> : (
-            disagreements.map((d: any) => (
+            disagreements.map((d) => (
               <div key={d.id || d.notification_id} className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-mono text-muted">{d.id || d.notification_id}</span>
@@ -137,9 +143,9 @@ export default function AgentsPage() {
                 </div>
                 <p className="text-sm mb-2">{d.message || d.description}</p>
                 <div className="flex gap-2">
-                  <input aria-label="Resolution note" value={resInput[d.id || d.notification_id] || ""} onChange={(e) => setResInput(r => ({...r, [d.id || d.notification_id]: e.target.value}))}
+                  <input aria-label="Resolution note" value={resInput[d.id || d.notification_id || ""] || ""} onChange={(e) => setResInput(r => ({...r, [d.id || d.notification_id || ""]: e.target.value}))}
                     placeholder="Resolution note" className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-xs" />
-                  <button type="button" onClick={() => resolveDisagreement(d.id || d.notification_id)}
+                  <button type="button" onClick={() => resolveDisagreement(d.id || d.notification_id || "")}
                     className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Resolve</button>
                 </div>
               </div>

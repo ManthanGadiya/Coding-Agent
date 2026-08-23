@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import type { MCPServer } from "@/lib/api";
 
 export default function SettingsPage() {
   const [mode, setMode] = useState("");
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
-  const [mcpServers, setMcpServers] = useState<any[]>([]);
+  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
   const [serverName, setServerName] = useState("");
   const [serverType, setServerType] = useState("stdio");
   const [serverCmd, setServerCmd] = useState("");
@@ -14,8 +15,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     api.autonomy.mode().then((d) => setMode(d.mode)).catch(() => {});
-    api.llm.models().then((d: any) => { const m = Array.isArray(d) ? d : []; setModels(m); if (m.length) setSelectedModel(m[0]); }).catch(() => {});
-    api.mcp.servers().then((d: any) => setMcpServers(Array.isArray(d) ? d : [])).catch(() => {});
+    api.llm.models().then((d) => { const m = Array.isArray(d) ? d : []; setModels(m); if (m.length) setSelectedModel(m[0]); }).catch(() => {});
+    api.mcp.servers().then((d) => setMcpServers(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   function setAutonomy(m: string) { api.autonomy.setMode(m).then(() => setMode(m)).catch(() => {}); }
@@ -24,12 +25,12 @@ export default function SettingsPage() {
   function addServer() {
     const config = serverType === "stdio" ? { command: serverCmd } : { url: serverCmd };
     api.mcp.add(serverName, { transport: serverType, ...config }).then(() => {
-      api.mcp.servers().then((d: any) => setMcpServers(Array.isArray(d) ? d : [])); setServerName(""); setServerCmd("");
+      api.mcp.servers().then((d) => setMcpServers(Array.isArray(d) ? d : [])); setServerName(""); setServerCmd("");
     }).catch(() => {});
   }
-  function removeServer(name: string) { api.mcp.remove(name).then(() => api.mcp.servers().then((d: any) => setMcpServers(Array.isArray(d) ? d : []))).catch(() => {}); }
-  function connectServer(name: string) { api.mcp.connect(name).then(() => api.mcp.servers().then((d: any) => setMcpServers(Array.isArray(d) ? d : []))).catch(() => {}); }
-  function disconnectServer(name: string) { api.mcp.disconnect(name).then(() => api.mcp.servers().then((d: any) => setMcpServers(Array.isArray(d) ? d : []))).catch(() => {}); }
+  function removeServer(name: string) { api.mcp.remove(name).then(() => api.mcp.servers().then((d) => setMcpServers(Array.isArray(d) ? d : []))).catch(() => {}); }
+  function connectServer(name: string) { api.mcp.connect(name).then(() => api.mcp.servers().then((d) => setMcpServers(Array.isArray(d) ? d : []))).catch(() => {}); }
+  function disconnectServer(name: string) { api.mcp.disconnect(name).then(() => api.mcp.servers().then((d) => setMcpServers(Array.isArray(d) ? d : []))).catch(() => {}); }
 
   return (
     <div className="space-y-8">
@@ -100,24 +101,24 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {mcpServers.map((s: any) => (
+          {mcpServers.map((s) => (
             <div key={s.name} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{s.name}</span>
                   <span className={`w-2 h-2 rounded-full ${s.connected ? "bg-success" : "bg-muted"}`} />
-                  <span className="text-[10px] text-muted">{s.transport ?? s.type ?? "?"}</span>
+                  <span className="text-[10px] text-muted">{(s.transport ?? s.type ?? "?") as string}</span>
                 </div>
                 <div className="flex gap-2">
-                  {!s.connected && <button type="button" onClick={() => connectServer(s.name)}
+                  {!s.connected && <button type="button" onClick={() => connectServer(s.name as string)}
                     className="px-2 py-1 text-xs bg-accent/10 text-accent rounded-lg">Connect</button>}
-                  {s.connected && <button type="button" onClick={() => disconnectServer(s.name)}
+                  {s.connected && <button type="button" onClick={() => disconnectServer(s.name as string)}
                     className="px-2 py-1 text-xs bg-yellow-500/10 text-yellow-500 rounded-lg">Disconnect</button>}
-                  <button type="button" onClick={() => removeServer(s.name)}
+                  <button type="button" onClick={() => removeServer(s.name as string)}
                     className="px-2 py-1 text-xs bg-red-500/10 text-red-500 rounded-lg">Remove</button>
                 </div>
               </div>
-              {s.tools && <div className="text-xs text-muted">{s.tools.length} tools</div>}
+              {Array.isArray(s.tools) && <div className="text-xs text-muted">{s.tools.length} tools</div>}
             </div>
           ))}
           {mcpServers.length === 0 && <p className="text-sm text-muted">No MCP servers configured.</p>}
@@ -128,7 +129,7 @@ export default function SettingsPage() {
 }
 
 function TestAction({ label, action, resource }: { label: string; action: string; resource: string }) {
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<{allowed: boolean} | null>(null);
   return (
     <div className="flex items-center gap-3 mb-2">
       <span className="text-sm text-muted w-32">{label}</span>

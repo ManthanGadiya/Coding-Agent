@@ -1,7 +1,15 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import type { ApiObject, CompressionSuggestion, MemoryEntry, MemoryVersion, RetentionCandidate, RetentionHealth } from "@/lib/api";
 import { ListSkeleton } from "@/components/ui";
+
+// ponytail: legacy endpoints may wrap lists in an envelope; real fix is correcting api.ts return types
+function unwrapList<T>(d: unknown[] | Record<string, unknown>, key: string): T[] {
+  return Array.isArray(d) ? (d as T[]) : ((d[key] as T[] | undefined) ?? []);
+}
+
+type VersionRow = MemoryVersion & { version_id?: string; timestamp?: string };
 
 const categoryColor: Record<string, string> = {
   architecture: "text-purple-400", decision: "text-blue-400", lesson: "text-green-400",
@@ -9,36 +17,36 @@ const categoryColor: Record<string, string> = {
 };
 
 export default function MemoryPage() {
-  const [data, setData] = useState({ entries: [] as any[], loading: true, filter: "", searchQ: "" });
+  const [data, setData] = useState({ entries: [] as MemoryEntry[], loading: true, filter: "", searchQ: "" });
   const [create, setCreate] = useState({ show: false, title: "", content: "", category: "knowledge" });
   const [tab, setTab] = useState<"entries" | "retention" | "compress">("entries");
-  const [retention, setRetention] = useState<any>(null);
-  const [stale, setStale] = useState<any[]>([]);
-  const [archival, setArchival] = useState<any[]>([]);
-  const [compressResult, setCompressResult] = useState<any>(null);
-  const [selected, setSelected] = useState<any>(null);
-  const [versions, setVersions] = useState<any[]>([]);
+  const [retention, setRetention] = useState<RetentionHealth | null>(null);
+  const [stale, setStale] = useState<RetentionCandidate[]>([]);
+  const [archival, setArchival] = useState<RetentionCandidate[]>([]);
+  const [compressResult, setCompressResult] = useState<CompressionSuggestion | Record<string, unknown> | null>(null);
+  const [selected, setSelected] = useState<MemoryEntry | null>(null);
+  const [versions, setVersions] = useState<VersionRow[]>([]);
 
   const loadEntries = useCallback(async (filterValue?: string) => {
     setData(d => ({...d, loading: true}));
     try {
       const f = filterValue ?? data.filter;
       const params = f ? `category=${f}` : "";
-      const d: any = await api.memory.entries(params);
-      setData(x => ({...x, entries: Array.isArray(d) ? d : d.entries ?? []}));
+      const d = await api.memory.entries(params);
+      setData(x => ({...x, entries: unwrapList<MemoryEntry>(d, "entries")}));
     } catch { setData(d => ({...d, entries: []})); }
     finally { setData(d => ({...d, loading: false})); }
   }, [data.filter]);
 
-  const loadRef = useRef(loadEntries);
-  loadRef.current = loadEntries;
+  const loadRef = useRef<() => void>(() => {});
+  useEffect(() => { loadRef.current = loadEntries; });
   useEffect(() => { loadRef.current(); }, []);
 
   useEffect(() => {
     if (tab === "retention") {
       api.memory.retentionHealth().then(setRetention).catch(() => {});
-      api.memory.stale().then((d: any) => setStale(Array.isArray(d) ? d : d.stale ?? [])).catch(() => {});
-      api.memory.archivalCandidates().then((d: any) => setArchival(Array.isArray(d) ? d : d.candidates ?? [])).catch(() => {});
+      api.memory.stale().then((d) => setStale(unwrapList<RetentionCandidate>(d, "stale"))).catch(() => {});
+      api.memory.archivalCandidates().then((d) => setArchival(unwrapList<RetentionCandidate>(d, "candidates"))).catch(() => {});
     }
   }, [tab]);
 
@@ -46,8 +54,8 @@ export default function MemoryPage() {
     if (!data.searchQ.trim()) { loadEntries(); return; }
     setData(d => ({...d, loading: true}));
     try {
-      const d: any = await api.memory.search(data.searchQ.trim());
-      setData(x => ({...x, entries: Array.isArray(d) ? d : d.entries ?? d}));
+      const d = await api.memory.search(data.searchQ.trim());
+      setData(x => ({...x, entries: Array.isArray(d) ? d : ((d as ApiObject).entries as MemoryEntry[] | undefined) ?? d}));
     } catch { setData(d => ({...d, entries: []})); }
     finally { setData(d => ({...d, loading: false})); }
   }
@@ -66,7 +74,7 @@ export default function MemoryPage() {
   }
 
   async function loadVersions(id: string) {
-    api.memory.versions(id).then((d: any) => setVersions(Array.isArray(d) ? d : d.versions ?? [])).catch(() => {});
+    api.memory.versions(id).then((d) => setVersions(unwrapList<VersionRow>(d, "versions"))).catch(() => {});
   }
 
   return (
@@ -131,28 +139,28 @@ export default function MemoryPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <code className="text-sm font-mono text-accent">{selected.title || selected.key}</code>
-                  <span className={`text-[10px] font-mono ${categoryColor[selected.category] || "text-muted"}`}>{selected.category}</span>
+                  <span className={`text-[10px] font-mono ${categoryColor[selected.category ?? ""] || "text-muted"}`}>{selected.category}</span>
                 </div>
                 <button type="button" onClick={() => { setSelected(null); setVersions([]); }} className="text-xs text-muted hover:text-foreground">Close</button>
               </div>
               <p className="text-sm text-muted whitespace-pre-wrap">{selected.content || selected.value}</p>
               <div className="flex gap-3 text-[10px] text-muted font-mono">
                 <span>ID: {selected.id}</span>
-                {selected.confidence && <span>Confidence: {typeof selected.confidence === "string" ? selected.confidence : selected.confidence.toFixed(2)}</span>}
+                {selected.confidence && <span>Confidence: {selected.confidence}</span>}
                 {selected.created_at && <span>{new Date(selected.created_at).toLocaleString()}</span>}
               </div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => loadVersions(selected.id)}
+                <button type="button" onClick={() => loadVersions(selected.id as string)}
                   className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium">Versions</button>
-                <button type="button" onClick={() => deleteEntry(selected.id)}
+                <button type="button" onClick={() => deleteEntry(selected.id as string)}
                   className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-xs font-medium">Delete</button>
               </div>
               {versions.length > 0 && (
                 <div className="space-y-1 border-t border-border pt-3">
                   <div className="text-xs text-muted mb-1">Version History ({versions.length})</div>
-                  {versions.map((v: any, i: number) => (
+                  {versions.map((v, i: number) => (
                     <div key={v.version_id || i} className="text-xs font-mono text-muted bg-surface rounded-lg px-3 py-2">
-                      v{i + 1} — {new Date(v.created_at || v.timestamp).toLocaleString()}
+                      v{i + 1} — {new Date((v.created_at || v.timestamp) as string).toLocaleString()}
                     </div>
                   ))}
                 </div>
@@ -164,22 +172,22 @@ export default function MemoryPage() {
             <div className="text-center text-muted text-sm py-12">No memory entries yet. Create your first entry above.</div>
           ) : (
             <div className="bg-card border border-border rounded-xl divide-y divide-border">
-              {data.entries.map((e: any) => (
-                <button type="button" className="w-full text-left px-5 py-4 hover:bg-card-hover transition-colors" onClick={() => { setSelected(e); setVersions([]); }}>
+              {data.entries.map((e, ei: number) => (
+                <button type="button" key={e.id ?? ei} className="w-full text-left px-5 py-4 hover:bg-card-hover transition-colors" onClick={() => { setSelected(e); setVersions([]); }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <code className="text-sm font-mono text-accent">{e.title || e.key}</code>
-                      <span className={`text-[10px] font-mono ${categoryColor[e.category] || "text-muted"}`}>{e.category}</span>
+                      <span className={`text-[10px] font-mono ${categoryColor[e.category ?? ""] || "text-muted"}`}>{e.category}</span>
                     </div>
                     <div className="flex items-center gap-3 text-[10px] text-muted font-mono">
-                      {e.confidence && <span>confidence: {typeof e.confidence === "string" ? e.confidence : e.confidence.toFixed(2)}</span>}
+                      {e.confidence && <span>confidence: {e.confidence}</span>}
                       {e.created_at && <span>{new Date(e.created_at).toLocaleDateString()}</span>}
                     </div>
                   </div>
                   <div className="text-sm text-muted mt-1 line-clamp-2">{e.content || e.value}</div>
-                  {e.tags?.length > 0 && (
+                  {e.tags && e.tags.length > 0 && (
                     <div className="flex gap-1.5 mt-2 flex-wrap">
-                      {(Array.isArray(e.tags) ? e.tags : []).slice(0, 5).map((tag: string) => (
+                      {(Array.isArray(e.tags) ? e.tags : []).slice(0, 5).map((tag) => (
                         <span key={tag} className="text-[10px] bg-surface border border-border rounded px-1.5 py-0.5 font-mono text-muted">{tag}</span>
                       ))}
                     </div>
@@ -210,7 +218,7 @@ export default function MemoryPage() {
               <h2 className="text-sm font-semibold mb-3">Stale Entries ({stale.length})</h2>
               {stale.length === 0 ? <p className="text-xs text-muted">No stale entries.</p> : (
                 <div className="space-y-2">
-                  {stale.slice(0, 10).map((s: any) => (
+                  {stale.slice(0, 10).map((s) => (
                     <div key={s.id} className="text-xs font-mono bg-surface rounded-lg px-3 py-2 text-muted">{s.title || s.id}</div>
                   ))}
                 </div>
@@ -220,7 +228,7 @@ export default function MemoryPage() {
               <h2 className="text-sm font-semibold mb-3">Archival Candidates ({archival.length})</h2>
               {archival.length === 0 ? <p className="text-xs text-muted">No archival candidates.</p> : (
                 <div className="space-y-2">
-                  {archival.slice(0, 10).map((a: any) => (
+                  {archival.slice(0, 10).map((a) => (
                     <div key={a.id} className="text-xs font-mono bg-surface rounded-lg px-3 py-2 text-muted">{a.title || a.id}</div>
                   ))}
                 </div>
@@ -235,7 +243,7 @@ export default function MemoryPage() {
           <div className="bg-card border border-border rounded-xl p-5 space-y-4">
             <h2 className="text-sm font-semibold">Compression</h2>
             <div className="flex gap-2">
-              <button type="button" onClick={() => { const ids = data.entries.map((e: any) => e.id); if (ids.length) api.memory.compress(ids).then(setCompressResult).catch(() => {}); }}
+              <button type="button" onClick={() => { const ids = data.entries.map((e) => e.id as string); if (ids.length) api.memory.compress(ids).then(setCompressResult).catch(() => {}); }}
                 className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium">Run Compression</button>
               <button type="button" onClick={() => api.memory.suggestCompress().then(setCompressResult).catch(() => {})}
                 className="px-4 py-2 bg-surface border border-border rounded-lg text-sm">Suggest</button>

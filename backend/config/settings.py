@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, List
 from functools import lru_cache
+from pathlib import Path
 
 
 class Settings(BaseSettings):
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "CAMera"
     APP_VERSION: str = "1.0.0"
 
-    DATABASE_URL: str = "sqlite:///./camera.db"
+    DATABASE_URL: str = f"sqlite:///{(Path(__file__).resolve().parents[1] / 'camera.db').as_posix()}"
     DATABASE_ECHO: bool = False
 
     DEFAULT_LOCAL_MODEL: str = "qwen2.5-coder:7b"

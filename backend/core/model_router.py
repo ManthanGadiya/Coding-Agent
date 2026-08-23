@@ -80,8 +80,14 @@ class ModelRouter:
                     return self.routes[name]
         return self.routes.get("ollama", list(self.routes.values())[0])
 
+    def _complexity_for(self, request: LLMRequest) -> str:
+        # explicit context wins; task_type "complex" (used by skills) escalates the floor
+        if request.context and request.context.get("complexity"):
+            return request.context["complexity"]
+        return "complex" if request.task_type == "complex" else "moderate"
+
     async def generate(self, request: LLMRequest) -> LLMResponse:
-        route = self.select_model(request.task_type, request.context.get("complexity", "moderate") if request.context else "moderate")
+        route = self.select_model(request.task_type, self._complexity_for(request))
         start = time.time()
 
         if route.provider == "ollama":
@@ -95,7 +101,7 @@ class ModelRouter:
         return LLMResponse(content="No model available", model="none", provider="none", latency_ms=0)
 
     async def generate_stream(self, request: LLMRequest) -> AsyncGenerator[str, None]:
-        route = self.select_model(request.task_type, request.context.get("complexity", "moderate") if request.context else "moderate")
+        route = self.select_model(request.task_type, self._complexity_for(request))
 
         if route.provider == "ollama":
             async for chunk in self._stream_ollama(request, route):

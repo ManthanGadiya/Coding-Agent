@@ -1,20 +1,24 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import type { DecisionRecord, RiskAssessment } from "@/lib/api";
 import { ListSkeleton } from "@/components/ui";
+
+type DecisionOptionView = { label?: string; name?: string; risk?: string };
+type DecisionHistoryRow = DecisionRecord & { objective?: string; timestamp?: string; selected?: string; risk_score?: number };
 
 export default function DecisionsPage() {
   const [tab, setTab] = useState<"history" | "decide" | "risk">("history");
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<DecisionHistoryRow[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   // Decide form
-  const [decision, setDecision] = useState<{objective: string; options: {label: string; desc: string; risk: string}[]; optLabel: string; optDesc: string; optRisk: string; result: any}>({
+  const [decision, setDecision] = useState<{objective: string; options: {label: string; desc: string; risk: string}[]; optLabel: string; optDesc: string; optRisk: string; result: DecisionRecord | { error: string } | null}>({
     objective: "", options: [], optLabel: "", optDesc: "", optRisk: "medium", result: null,
   });
 
   // Risk form
-  const [risk, setRisk] = useState<{action: string; result: any}>({action: "", result: null});
+  const [risk, setRisk] = useState<{action: string; result: RiskAssessment | { error: string } | null}>({action: "", result: null});
 
   useEffect(() => {
     api.decisions.history().then((d) => setHistory(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoaded(true));
@@ -62,14 +66,14 @@ export default function DecisionsPage() {
         <div className="space-y-3 animate-in">
           {!loaded ? <ListSkeleton rows={4} /> : history.length === 0 ? (
             <p className="text-sm text-muted py-8 text-center">No decisions recorded yet. Use the Decide tab to make your first decision.</p>
-          ) : history.map((h: any, i: number) => (
+          ) : history.map((h, i) => (
             <div key={h.id || i} className="bg-card border border-border rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-sm">{h.objective || h.context || "Decision"}</h3>
                 <span className="text-[10px] font-mono text-muted">{h.timestamp ? new Date(h.timestamp).toLocaleString() : ""}</span>
               </div>
               {h.options && (
-                <div className="space-y-1 mb-3">{h.options.map((o: any, j: number) => (
+                <div className="space-y-1 mb-3">{(h.options as DecisionOptionView[]).map((o, j) => (
                   <div key={o.label ?? o.name ?? j} className="flex items-center gap-2 text-xs bg-surface rounded-lg px-3 py-2">
                     <span className="text-accent font-mono">{j + 1}.</span>
                     <span className="flex-1">{o.label || o.name}</span>

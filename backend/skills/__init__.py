@@ -47,3 +47,6 @@ def log_use(entry: Dict):
 
 def get_log(limit: int = 50) -> List[Dict]:
     return _SKILL_LOG[-limit:]
+
+
+import backend.skills.builtin as _builtin  # noqa: F401  # register built-in skills

@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import type { Project } from "@/lib/api";
+
+type ProjectRow = Project & { task_count?: number; completed_task_count?: number };
 
 export default function Projects() {
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");

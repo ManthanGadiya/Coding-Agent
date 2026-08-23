@@ -15,7 +15,6 @@ from backend.api.user import router as user_router
 from backend.api.mcp import router as mcp_router
 from backend.api.skills import router as skills_router
 from backend.api.releases import router as releases_router
-import backend.skills.builtin  # noqa: F401  # register built-in skills
 
 router = APIRouter()
 

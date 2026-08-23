@@ -3,19 +3,34 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import type { AgentInfo, ManagerStatusResponse, Project, TaskResponse } from "@/lib/api";
 
 import { Skeleton } from "@/components/ui";
 
+type OrchStatus = ManagerStatusResponse & { registered_agents?: number; agents?: Record<string, AgentInfo> };
+type MemStats = { total?: number; entries?: number; global?: number; project?: number };
+type ProjectsPayload = { projects?: Project[] } | Project[];
+type TasksPayload = { tasks?: TaskResponse[] } | TaskResponse[];
+type RunGoalResult = {
+  success?: boolean;
+  classification?: string;
+  complexity?: string;
+  pipeline_id?: string;
+  completed_steps?: number;
+  total_steps?: number;
+  steps?: Array<{ step?: string; status?: string; agent?: string; error?: string; output?: string }>;
+};
+
 export default function Dashboard() {
-  const [data, setData] = useState<{ orch: any; projects: any[]; tasks: any[]; mem: any }>({ orch: null, projects: [], tasks: [], mem: null });
-  const [form, setForm] = useState({ goal: "", running: false, result: null as any });
+  const [data, setData] = useState<{ orch: OrchStatus | null; projects: Project[]; tasks: TaskResponse[]; mem: MemStats | null }>({ orch: null, projects: [], tasks: [], mem: null });
+  const [form, setForm] = useState({ goal: "", running: false, result: null as RunGoalResult | null });
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     Promise.all([
       api.manager.status().then((d) => setData(s => ({...s, orch: d}))).catch(() => {}),
-      api.projects.list().then((d: any) => setData(s => ({...s, projects: d.projects ?? d}))).catch(() => {}),
-      api.tasks.list().then((d: any) => setData(s => ({...s, tasks: d.tasks ?? d}))).catch(() => {}),
+      api.projects.list().then((d) => { const p = d as ProjectsPayload; setData(s => ({...s, projects: Array.isArray(p) ? p : p.projects ?? []})); }).catch(() => {}),
+      api.tasks.list().then((d) => { const t = d as TasksPayload; setData(s => ({...s, tasks: Array.isArray(t) ? t : t.tasks ?? []})); }).catch(() => {}),
       api.memory.stats().then((d) => setData(s => ({...s, mem: d}))).catch(() => {}),
     ]).finally(() => setLoaded(true));
   }, []);
@@ -25,18 +40,18 @@ export default function Dashboard() {
     setForm(f => ({...f, running: true, result: null}));
     try {
       const res = await api.agents.runGoal(form.goal.trim());
-      setForm(f => ({...f, result: res}));
-    } catch (e: any) {
-      setForm(f => ({...f, result: { success: false, error: e.message } }));
+      setForm(f => ({...f, result: res as RunGoalResult}));
+    } catch (e) {
+      setForm(f => ({...f, result: { success: false, error: e instanceof Error ? e.message : String(e) } }));
     } finally {
       setForm(f => ({...f, running: false}));
     }
   }
 
   const stats = [
-    { label: "Agents", value: data.orch?.registered_agents ?? "-", sub: `${data.orch?.agents ? Object.values(data.orch.agents).filter((a: any) => a.state === "idle").length : "-"} idle` },
-    { label: "Projects", value: data.projects.length, sub: `${data.projects.filter((p: any) => p.status === "active").length} active` },
-    { label: "Tasks", value: data.tasks.length, sub: `${data.tasks.filter((t: any) => t.status !== "completed").length} pending` },
+    { label: "Agents", value: data.orch?.registered_agents ?? "-", sub: `${data.orch?.agents ? Object.values(data.orch.agents).filter((a) => a.state === "idle").length : "-"} idle` },
+    { label: "Projects", value: data.projects.length, sub: `${data.projects.filter((p) => p.status === "active").length} active` },
+    { label: "Tasks", value: data.tasks.length, sub: `${data.tasks.filter((t) => t.status !== "completed").length} pending` },
     { label: "Memory", value: data.mem?.total ?? data.mem?.entries ?? "-", sub: `${data.mem?.global ?? 0} global · ${data.mem?.project ?? 0} project` },
   ];
 
@@ -83,7 +98,7 @@ export default function Dashboard() {
               {form.result.completed_steps}/{form.result.total_steps} steps completed
             </div>
             <div className="space-y-1 max-h-48 overflow-y-auto">
-              {(form.result.steps ?? []).map((s: any, i: number) => (
+              {(form.result.steps ?? []).map((s) => (
                 <div key={s.step} className="flex items-center gap-3 text-xs font-mono bg-surface rounded-lg px-3 py-2">
                   <span className={`w-2 h-2 rounded-full ${s.status === "completed" ? "bg-success" : "bg-error"}`} />
                   <span className="text-muted w-24 truncate">{s.step}</span>
@@ -116,15 +131,15 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 gap-4 animate-in">
           <div className="bg-card border border-border rounded-xl p-5">
             <h2 className="text-sm font-semibold mb-3">Task Status</h2>
-            <ChartBar label="Completed" count={data.tasks.filter((t: any) => t.status === "completed").length} total={data.tasks.length} color="bg-success" />
-            <ChartBar label="In Progress" count={data.tasks.filter((t: any) => t.status === "in_progress").length} total={data.tasks.length} color="bg-accent" />
-            <ChartBar label="Pending" count={data.tasks.filter((t: any) => t.status === "pending" || t.status === "open").length} total={data.tasks.length} color="bg-yellow-500" />
-            <ChartBar label="Failed" count={data.tasks.filter((t: any) => t.status === "failed").length} total={data.tasks.length} color="bg-red-500" />
+            <ChartBar label="Completed" count={data.tasks.filter((t) => t.status === "completed").length} total={data.tasks.length} color="bg-success" />
+            <ChartBar label="In Progress" count={data.tasks.filter((t) => t.status === "in_progress").length} total={data.tasks.length} color="bg-accent" />
+            <ChartBar label="Pending" count={data.tasks.filter((t) => t.status === "pending" || t.status === "open").length} total={data.tasks.length} color="bg-yellow-500" />
+            <ChartBar label="Failed" count={data.tasks.filter((t) => t.status === "failed").length} total={data.tasks.length} color="bg-red-500" />
           </div>
           {data.orch?.agents && (
             <div className="bg-card border border-border rounded-xl p-5">
               <h2 className="text-sm font-semibold mb-3">Agent Performance</h2>
-              {Object.entries(data.orch.agents).map(([id, a]: any) => {
+              {Object.entries(data.orch.agents).map(([id, a]) => {
                 const total = (a.tasks_completed || 0) + (a.tasks_failed || 0);
                 return (
                   <div key={id} className="mb-3">
@@ -147,11 +162,11 @@ export default function Dashboard() {
         <div className="animate-in">
           <h2 className="text-lg font-semibold mb-3">Agents</h2>
           <div className="grid grid-cols-3 gap-3">
-              {Object.entries(data.orch.agents).map(([id, a]: any) => (
+              {Object.entries(data.orch.agents).map(([id, a]) => (
                 <Link key={id} href={`/agents/${id}`} className="bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:bg-card-hover transition-colors">
                 <div>
                   <div className="text-sm font-medium">{id.replace("-1", "")}</div>
-                  <div className="text-xs text-muted mt-0.5 font-mono">{a.capabilities.slice(0, 3).join(", ")}</div>
+                  <div className="text-xs text-muted mt-0.5 font-mono">{(a.capabilities ?? []).slice(0, 3).join(", ")}</div>
                 </div>
                  <span className={`px-2 py-0.5 rounded-full text-xs font-mono ${
                    a.state === "idle" ? "bg-success/10 text-success" : "bg-accent/10 text-accent"

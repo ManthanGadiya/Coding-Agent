@@ -2,13 +2,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
+import type { Project, ProjectStats, TaskResponse } from "@/lib/api";
 import Link from "next/link";
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [project, setProject] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
+  const [stats, setStats] = useState<ProjectStats | null>(null);
+  const [tasks, setTasks] = useState<TaskResponse[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -32,11 +33,11 @@ export default function ProjectDetailPage() {
           <StatCard label="Tasks" value={stats.total_tasks ?? tasks.length} />
           <StatCard label="Completed" value={stats.completed_tasks ?? tasks.filter((t) => t.status === "completed").length} />
           <StatCard label="Completion" value={stats.completion_rate != null ? `${Math.round(stats.completion_rate * 100)}%` : "—"} />
-          <StatCard label="Arch Decisions" value={stats.architecture_decisions ?? "—"} />
+          <StatCard label="Arch Decisions" value={String(stats.architecture_decisions ?? "—")} />
         </div>
       )}
 
-      {project.tech_stack && (
+      {Array.isArray(project.tech_stack) && (
         <div className="bg-card border border-border rounded-xl p-5 animate-in">
           <h2 className="text-sm font-semibold mb-2">Tech Stack</h2>
           <div className="flex flex-wrap gap-2">
@@ -50,7 +51,7 @@ export default function ProjectDetailPage() {
       <div className="bg-card border border-border rounded-xl p-5 animate-in">
         <h2 className="text-sm font-semibold mb-3">Tasks ({tasks.length})</h2>
         <div className="space-y-2">
-          {tasks.map((t: any) => (
+          {tasks.map((t) => (
             <div key={t.id} className="flex items-center gap-3 bg-surface rounded-lg px-3 py-2">
               <span className={`w-2 h-2 rounded-full ${t.status === "completed" ? "bg-success" : t.status === "in_progress" ? "bg-accent" : t.status === "failed" ? "bg-red-500" : "bg-yellow-500"}`} />
               <span className="text-xs font-mono flex-1">{t.title}</span>
@@ -65,7 +66,7 @@ export default function ProjectDetailPage() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: any }) {
+function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="bg-card border border-border rounded-xl p-4">
       <div className="text-[10px] text-muted">{label}</div>

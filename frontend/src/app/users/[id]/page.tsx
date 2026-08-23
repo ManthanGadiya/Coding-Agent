@@ -1,33 +1,37 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, UserGoal, UserRecord } from "@/lib/api";
 import Link from "next/link";
 import { Skeleton, CardSkeleton, ListSkeleton } from "@/components/ui";
 
+type UserProfile = UserRecord & { project_count?: number };
+type GoalItem = UserGoal & { domain?: string };
+type GoalsPayload = { goals?: UserGoal[] } | UserGoal[];
+
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [user, setUser] = useState<any>(null);
-  const [goals, setGoals] = useState<any[]>([]);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [goals, setGoals] = useState<GoalItem[]>([]);
   const [goalForm, setGoalForm] = useState<{ show: boolean; goal: string }>({ show: false, goal: "" });
 
   useEffect(() => {
     if (!id) return;
     api.users.get(id).then(setUser).catch(() => {});
-    api.users.goals(id).then((d: any) => setGoals(Array.isArray(d) ? d : d.goals ?? [])).catch(() => {});
+    api.users.goals(id).then((d) => { const l = d as GoalsPayload; setGoals(Array.isArray(l) ? l : l.goals ?? []); }).catch(() => {});
   }, [id]);
 
   function createGoal() {
     if (!goalForm.goal.trim()) return;
     api.users.createGoal(id, { title: goalForm.goal.trim() }).then(() => {
       setGoalForm({ show: false, goal: "" });
-      api.users.goals(id).then((d: any) => setGoals(Array.isArray(d) ? d : d.goals ?? [])).catch(() => {});
+      api.users.goals(id).then((d) => { const l = d as GoalsPayload; setGoals(Array.isArray(l) ? l : l.goals ?? []); }).catch(() => {});
     }).catch(() => {});
   }
 
   function toggleGoal(userId: string, goalId: string, completed: boolean) {
     api.users.updateGoal(userId, goalId, { status: completed ? "completed" : "active" }).then(() => {
-      api.users.goals(userId).then((d: any) => setGoals(Array.isArray(d) ? d : d.goals ?? [])).catch(() => {});
+      api.users.goals(userId).then((d) => { const l = d as GoalsPayload; setGoals(Array.isArray(l) ? l : l.goals ?? []); }).catch(() => {});
     }).catch(() => {});
   }
 
@@ -67,7 +71,7 @@ export default function UserDetailPage() {
         {[
           { label: "Projects", value: user.project_count ?? 0 },
           { label: "Goals", value: goals.length },
-          { label: "Active Goals", value: goals.filter((g: any) => g.status !== "completed").length },
+          { label: "Active Goals", value: goals.filter((g) => g.status !== "completed").length },
           {label: "Role", value: user.role || "user" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4">
@@ -96,12 +100,12 @@ export default function UserDetailPage() {
         )}
 
         {goals.length === 0 ? (
-          <p className="text-sm text-muted text-center py-6">No goals yet. Add a goal above to track this user's objectives.</p>
+          <p className="text-sm text-muted text-center py-6">No goals yet. Add a goal above to track this user&apos;s objectives.</p>
         ) : (
           <div className="space-y-2">
-            {goals.map((g: any) => (
+            {goals.map((g) => (
               <div key={g.id} className="flex items-center gap-3 bg-surface rounded-lg px-4 py-3">
-                <input aria-label="Mark goal complete" type="checkbox" checked={g.status === "completed"} onChange={() => toggleGoal(id, g.id, g.status !== "completed")}
+                <input aria-label="Mark goal complete" type="checkbox" checked={g.status === "completed"} onChange={() => toggleGoal(id, String(g.id), g.status !== "completed")}
                   className="rounded accent-accent" />
                 <span className={`text-sm flex-1 ${g.status === "completed" ? "line-through text-muted" : ""}`}>{g.title}</span>
                 <span className="px-2 py-0.5 rounded text-xs font-mono bg-surface text-muted">{g.domain}</span>

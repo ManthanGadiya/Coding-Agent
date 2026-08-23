@@ -1,20 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import type { SkillDef, ToolDef } from "@/lib/api";
 
 export default function ToolsPage() {
   const [tab, setTab] = useState<"tools" | "skills">("tools");
-  const [tools, setTools] = useState<any[]>([]);
-  const [skills, setSkills] = useState<any[]>([]);
-  const [result, setResult] = useState<any>(null);
+  const [tools, setTools] = useState<ToolDef[]>([]);
+  const [skills, setSkills] = useState<SkillDef[]>([]);
+  const [result, setResult] = useState<Record<string, unknown> | { error: string } | null>(null);
   const [toolName, setToolName] = useState("");
   const [toolArgs, setToolArgs] = useState("{}");
   const [skillName, setSkillName] = useState("");
   const [skillArgs, setSkillArgs] = useState("{}");
 
   useEffect(() => {
-    api.tools.list().then((d: any) => setTools(Array.isArray(d) ? d : [])).catch(() => {});
-    api.skills.list().then((d: any) => setSkills(Array.isArray(d) ? d : [])).catch(() => {});
+    api.tools.list().then((d) => setTools(Array.isArray(d) ? d : [])).catch(() => {});
+    api.skills.list().then((d) => setSkills(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   function parseArgs(raw: string): Record<string, unknown> | null {
@@ -67,7 +68,7 @@ export default function ToolsPage() {
               <select value={toolName} onChange={(e) => setToolName(e.target.value)}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm flex-1">
                 <option value="">Select tool...</option>
-                {tools.map((t: any) => <option key={t.name ?? t} value={t.name ?? t}>{t.name ?? t}</option>)}
+                {tools.map((t) => <option key={t.name ?? ""} value={t.name ?? ""}>{t.name ?? ""}</option>)}
               </select>
               <button type="button" onClick={runTool} disabled={!toolName}
                 className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium disabled:opacity-40">Execute</button>
@@ -77,10 +78,10 @@ export default function ToolsPage() {
           </div>
 
           <div className="grid gap-3">
-            {tools.map((t: any) => (
-              <div key={t.name ?? t} className="bg-card border border-border rounded-xl p-4">
+            {tools.map((t) => (
+              <div key={t.name ?? ""} className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium font-mono">{t.name ?? t}</span>
+                  <span className="text-sm font-medium font-mono">{t.name ?? ""}</span>
                 </div>
                 {t.description && <p className="text-xs text-muted">{t.description}</p>}
                 {t.parameters && <div className="text-[10px] text-muted mt-1 font-mono">params: {Object.keys(t.parameters).join(", ")}</div>}
@@ -98,7 +99,7 @@ export default function ToolsPage() {
               <select value={skillName} onChange={(e) => setSkillName(e.target.value)}
                 className="bg-surface border border-border rounded-lg px-3 py-2 text-sm flex-1">
                 <option value="">Select skill...</option>
-                {skills.map((s: any) => <option key={s.name ?? s} value={s.name ?? s}>{s.name ?? s}</option>)}
+                {skills.map((s) => <option key={s.name ?? ""} value={s.name ?? ""}>{s.name ?? ""}</option>)}
               </select>
               <button type="button" onClick={runSkill} disabled={!skillName}
                 className="px-4 py-2 bg-accent text-black rounded-lg text-sm font-medium disabled:opacity-40">Execute</button>
@@ -108,9 +109,9 @@ export default function ToolsPage() {
           </div>
 
           <div className="grid gap-3">
-            {skills.map((s: any) => (
-              <div key={s.name ?? s} className="bg-card border border-border rounded-xl p-4">
-                <span className="text-sm font-medium font-mono">{s.name ?? s}</span>
+            {skills.map((s) => (
+              <div key={s.name ?? ""} className="bg-card border border-border rounded-xl p-4">
+                <span className="text-sm font-medium font-mono">{s.name ?? ""}</span>
                 {s.description && <p className="text-xs text-muted mt-1">{s.description}</p>}
               </div>
             ))}
